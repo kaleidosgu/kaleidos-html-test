@@ -1,0 +1,2119 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+  <script src="processing.js"></script>
+  <script src="sound.js"></script>
+<link rel="stylesheet" href="style_nocursor.css"/></head>
+<body><h1>Citadels</a></h1>
+<p>by kaleidos. </p>
+<p><a href="mailto:gjcaoyi@163.com"><b>mailto: gjcaoyi@163.com</b> </a></p>
+<script type="application/processing">
+/* @pjs preload="kag/arrow_cursor.png"; 
+		preload="Citadels/1.png"; 
+		preload="Citadels/2.png"; 
+		preload="Citadels/3.png"; 
+		preload="Citadels/4.png"; 
+		preload="Citadels/5.png"; 
+		preload="Citadels/6.png"; 
+		preload="Citadels/7.png"; 
+		preload="Citadels/8.png"; 
+		preload="Citadels/crown.png"; 
+		preload="Citadels/playerFlag.png"; 
+		preload="Citadels/playerChooseBg.png";
+		
+*/
+int WND_RESULT_NO = 0;
+int WND_RESULT_YES = 1;
+int WND_EVENT_CLICK = 0;
+PFont fontA = 0;
+CWndDesktop g_pDesk ;
+int INPUT_KEYDOWN = 1;
+int INPUT_KEYUP = 2;
+CWndBase 	s_pWndLBDown = null;
+boolean 	m_bLPressed	  			= false;
+boolean		m_bLReleased  			= false;
+boolean		m_bRPressed  			= false;
+boolean		m_bRReleased  			= false;
+CPoint 		m_ptMouse				= new CPoint(0,0);
+CMainInput 	g_pInput				= null;
+int			g_nIntersectNone		= 0;
+int			g_nIntersectHori		= 1;
+int			g_nIntersectVertTop		= 2;
+int			g_nIntersectVertBottom	= 3;
+int			g_nCharacterCounts		= 8;
+
+float		g_fCommonRate 			= 2;
+
+long 		g_nLastTime 			= 0;
+int			g_ScreenWidth 			= 1024;
+int			g_ScreenHeight 			= 700;
+CPlayer		g_pPlayerFirstBuild		= null;
+CWndTga		g_pMouseCursor 			= null;
+
+CWndTga		g_pCrown				= null;
+
+CWndTga		g_pPlayerFlag			= null;
+
+int			g_nInitBuildingCount	= 2;
+
+int			g_nCharacterNone		= 0;
+int			g_nCharacterAssassin	= 1;
+int			g_nCharacterThief		= 2;
+int			g_nCharacterWizard		= 3;
+int			g_nCharacterKing		= 4;
+int			g_nCharacterBishop		= 5;
+int			g_nCharacterBusinessmen = 6;
+int			g_nCharacterBuilder		= 7;
+int			g_nCharacterArmy		= 8;
+
+int			g_nBuildingColorNone	= 0;
+int			g_nBuildingColorBlue	= 1;	
+int			g_nBuildingColorRed		= 2;
+int			g_nBuildingColorGold	= 3;
+int			g_nBuildingColorGreen	= 4;
+
+int			g_nDifferentBuildingCount		= 5;
+
+int			g_nFiveDifferentBuildingScore 	= 3;
+int			g_nFirstBuildingScore		 	= 4;
+int			g_nNextBuildingScore		 	= 2;
+
+String[] 	g_strCharacter			= { "刺客", "小偷", "巫师","国王","主教","商人","建筑师","军阀" };
+String[] 	g_strCharacterAction	= { "杀人", "偷窃", "置换 ","皇室","教区","商业","建筑","镇压" };
+String[] 	g_strCommonAction		= { "获取金币", "建筑卡牌获取", "建筑 ","皇室","教区","商业","建筑","独裁" };
+String[] 	g_strBuildingNames 		= { "宗教地区", "军事地区", "贵族地区","商业地区" };
+
+int			g_nGameOverCondition		= 8;
+int			g_nMaxPlayerCounts			= 6;
+float		g_fRateShowPlayer			= 0.5;
+int			g_nMaxCharacterCount		= 8;
+int			g_nMaxBuildingCount			= 65;
+	
+int			g_nPlayerSpan				= 180;
+int			g_nPlayerChoseSpan			= 100;
+	
+int			g_nInitGold					= 2;
+int			g_nRoundGold				= 2;
+int			g_nBankGold 				= 35;
+int			g_nRoyaltyGold				= 1;
+int			g_nRoyaltyParish			= 1;
+int			g_nRoyaltyBusiness			= 1;
+int			g_nRoyaltyBusinessAdd		= 1;
+
+int			g_nBuilderExtraGainBuilding	= 2;
+int			g_nBuilderExtraBuild		= 3;
+
+ArrayList	g_pBuildingRest				= null;
+HashMap 	g_mapCommonAction 			= new HashMap();
+HashMap 	g_mapCharacterAction 		= new HashMap();
+CPlayer		g_pThief					= null;
+
+int			g_nCommonActionCoin			= 0;
+int			g_nCommonActionGainBuilding	= 1;
+int			g_nCommonActionBuild		= 2;
+
+void setup() 
+{
+	size(g_ScreenWidth,g_ScreenHeight);
+	
+	g_pDesk 				= new CWndDesktop();
+	g_pDesk.ResizeWindow(1,1);
+	var tempDate 			= new Date()
+	g_nLastTime 			= tempDate.getTime();
+	HashMap hm 				= new HashMap();
+	g_pBuildingRest			= new ArrayList();
+	
+	g_mapCommonAction		= new HashMap();
+	g_mapCharacterAction	= new HashMap();
+	
+	g_mapCharacterAction.put("" + g_nCharacterAssassin,		new CActionKill());
+	g_mapCharacterAction.put("" + g_nCharacterThief,		new CActionSteal());
+	g_mapCharacterAction.put("" + g_nCharacterWizard,		new CActionMagic());
+	g_mapCharacterAction.put("" + g_nCharacterKing,			new CActionRoyalty());
+	g_mapCharacterAction.put("" + g_nCharacterBishop,		new CActionParish());
+	g_mapCharacterAction.put("" + g_nCharacterBusinessmen,	new CActionBusiness());
+	g_mapCharacterAction.put("" + g_nCharacterBuilder,		new CActionBuilder());
+	g_mapCharacterAction.put("" + g_nCharacterArmy,			new CActionQuell());
+	
+	g_mapCommonAction.put("" + g_nCommonActionCoin,			new CActionGetCoin());
+	g_mapCommonAction.put("" + g_nCommonActionGainBuilding,	new CCommonActionGetBuilding());
+	g_mapCommonAction.put("" + g_nCommonActionBuild,		new CActionBuild());
+
+	hm.put("" + 1, 37);
+	hm.put("" + 3, 36);
+	hm.put("" + 2, 35);
+
+	//println(hm.get("2"));
+	Iterator i = hm.entrySet().iterator();  // Get an iterator
+
+	while (i.hasNext()) {
+	  Map.Entry me = (Map.Entry)i.next();
+	  //println(me.getKey() + " is " + me.getValue());
+	}
+	try
+	{
+	
+		for( int i = 0; i < 20; i++ )
+		{
+			//noiseSeed(0);
+			//int nIndex = (int)random(0,6) ;
+			//println(nIndex);
+		}
+				
+		fontA = loadFont("Courier New");
+		
+		g_pCrown			= new CWndTga("Citadels/crown.png",1,1);
+		g_pCrown.Create( 0,0,0,0, g_pDesk,1);
+		g_pCrown.SetColorKey(color(128, 255, 255));
+		g_pCrown.showWindow(false);
+		
+		g_pPlayerFlag		= new CWndTga("Citadels/playerFlag.png",1,1);
+		g_pPlayerFlag.Create( 40,0,0,0, g_pDesk,1);
+		g_pPlayerFlag.SetColorKey(color(128, 255, 255));
+		
+		g_pInput 		= new CMainInput();
+		g_pInput.Create( 0,0,g_ScreenWidth,g_ScreenHeight,g_pDesk,0 );
+		
+		g_pMouseCursor 	= new CWndTga("kag/arrow_cursor.png",1,1);
+		g_pMouseCursor.Create( 0,500,0,0, g_pDesk,1);
+		g_pMouseCursor.SetDrawRate(g_fCommonRate);
+		g_pMouseCursor.setFrame(49);
+		g_pMouseCursor.SetMirror(false);
+		g_pMouseCursor.changeFrame();
+		g_pMouseCursor.SetColorKey(color(128, 255, 255));
+		
+	}
+	catch(e)
+	{
+		println(e);
+	}
+	frameRate(60);  
+}
+class CRect{
+	int			left		= 0;
+	int			top			= 0;
+	int			right		= 0;
+	int			bottom		= 0;
+	CRect( int posx, int posy, int cx, int cy ) {
+		this.left 	= posx;
+		this.top 	= posy;
+		this.right 	= posx + cx;
+		this.bottom = posy + cy;
+	}
+	CRect( const CRect& rc1 ) {
+		this.left 	= rc1.left;
+		this.top 	= rc1.top;
+		this.right 	= rc1.right;
+		this.bottom = rc1.bottom;
+	}
+}
+void copyRect( CRect rcDst, CRect rcSrc )
+{
+	rcDst.left 		= rcSrc.left;
+	rcDst.right 	= rcSrc.right;
+	rcDst.top 		= rcSrc.top;
+	rcDst.bottom 	= rcSrc.bottom;
+}
+void offsetRect ( CRect rc, int dx, int dy ) 
+{
+	rc.left 	= rc.left 	+ dx;
+	rc.right 	= rc.right 	+ dx;
+	rc.top 		= rc.top 	+ dy;
+	rc.bottom 	= rc.bottom + dy;
+}
+void SetRectEmpty( CRect rc )
+{
+	rc.left 	= 0;
+	rc.right 	= 0;
+	rc.top 		= 0;
+	rc.bottom 	= 0;
+}
+void SetRect( CRect rc, int posx, int posy, int cx, int cy )
+{
+	rc.left 	= posx;
+	rc.right 	= posx + cx;
+	rc.top 		= posy;
+	rc.bottom 	= posy + cy;
+}
+boolean PtInRect( CRect rc, CPoint pt ) {
+	if ( pt.x >= rc.left && pt.x < rc.right && pt.y >= rc.top && pt.y < rc.bottom )
+	{
+		return true;
+	}
+	return false;
+}
+void mouseMoved() {
+	if ( mousePressed == false )
+	{
+	}
+	else
+	{
+	}
+}
+void mousePressed() {
+  if (mouseButton == LEFT) {
+	m_bLPressed	  	= true;
+	m_bLReleased  	= false;
+  } else if (mouseButton == RIGHT) {
+	m_bRPressed  	= true;
+	m_bRReleased  	= false;
+  } else {
+  }
+}
+void mouseReleased() {
+  if(mouseButton == LEFT) {
+	m_bLPressed	  	= false;
+	m_bLReleased  	= true;
+  } else if (mouseButton == RIGHT) {
+	m_bRPressed  	= false
+	m_bRReleased    = true;
+  }
+}
+
+void draw() 
+{ 
+	background(58,188,117);
+	try
+	{
+		g_pDesk.onDraw();
+		var tempDate = new Date();
+		long nTempOffset = tempDate.getTime() - g_nLastTime;
+		g_nLastTime = tempDate.getTime();
+		g_pDesk.OnUpdate(nTempOffset);
+		m_ptMouse.x = mouseX;
+		m_ptMouse.y = mouseY;
+		g_pDesk.OnMouseInput();
+		if( m_bLReleased == true ) {
+			if ((mouseButton == LEFT)) {
+				m_bLReleased = false;
+			}
+		}
+	}
+	catch(e)
+	{
+		println(e);
+	}
+}
+void keyReleased() {
+	//println("release " + int(key) + " " + keyCode);
+}
+void keyPressed() {
+	//println("pressed " + int(key) + " " + keyCode);
+}
+int intersect( CRect r1, CRect r2, boolean bDirUp ){ 
+	try {
+		CRect rcTmp = new CRect(0,0,0,0);
+		rcTmp.left = max(r1.left, r2.left);
+		rcTmp.right = min(r1.right, r2.right);
+		rcTmp.top = max(r1.top, r2.top);
+		rcTmp.bottom = min(r1.bottom, r2.bottom);
+		if( rcTmp.left > rcTmp.right || rcTmp.top > rcTmp.bottom )
+		{
+			return g_nIntersectNone;
+		}
+		else
+		{
+			if( bDirUp ) {
+				if( rcTmp.top <= rcTmp.bottom ) {
+					if( r1.top <= r2.top ){
+						return g_nIntersectVertTop;
+					}
+					else{
+						return g_nIntersectVertBottom;
+					}
+				}
+				else {
+					return g_nIntersectHori;
+				}
+			}
+			else{
+				if( rcTmp.left <= rcTmp.right ) {
+					return g_nIntersectHori;
+				}
+				else {
+					if( r1.top <= r2.top ){
+						return g_nIntersectVertTop;
+					}
+					else{
+						return g_nIntersectVertBottom;
+					}
+				}
+			}
+		}
+	}
+	catch ( e ) {
+	}
+
+}
+class CObject {
+	CObject() {
+	}
+}
+class CWndBase extends CObject{
+	ArrayList	arrayChild 			= 0;
+	CWndBase	m_pParent			= 0;
+	boolean		m_bShowBox 			= false;
+	boolean 	m_bVisible  		= true;
+	boolean 	m_bDragWithParent 	= true;
+	boolean		m_bNeedMouseInput	= true;
+	static int	m_nDirRight			= 1;
+	static int	m_nDirLeft			= 2;
+	static int	m_nDirUp			= 3;
+	static int	m_nDirDown			= 4;
+	CRect		m_rcRect;	
+	CRect		m_rcAbsWnd;	
+		
+	int			m_nDlgID			= 0;
+	color		m_crBox				= color(255,255,128);
+	
+	CWndBase() {
+		super();
+		this.m_rcRect = new CRect(0,0,0,0);
+		this.m_rcAbsWnd = new CRect(0,0,0,0);
+		SetRectEmpty(this.m_rcRect);
+		
+		this.arrayChild		= new ArrayList();
+	}
+	void showWindow( boolean bShow ) {
+		m_bVisible = bShow;
+	}
+	void OnUpdate( long nOffset ) {
+		for ( int idx = 0; idx < arrayChild.size(); idx++ ) {
+			CWndBase pWnd = (CWndBase) this.arrayChild.get( idx );
+			pWnd.OnUpdate( nOffset);
+		}
+	}
+	int OnKeyDown ( int keyType, int keyValue ) {
+		int nRes = WND_RESULT_NO;
+		//println("typeddown " + int(key) + " " + keyCode);
+		return nRes;
+	}
+	int OnKeyUp ( int keyType, int keyValue ) {
+		int nRes = WND_RESULT_NO;
+		//println("typedup " + int(key) + " " + keyCode);
+		return nRes;
+	}
+	int OnChar ( int keyType, int keyValue ) {
+		int nRes = WND_RESULT_NO;
+		//println("onchar " + int(key) + " " + keyCode);
+		return nRes;
+	}
+	
+	int SendMessage( int nUIEvent, int nID ) {
+		return OnMessage( nUIEvent, nID );
+	}
+	int OnMessage( int nUIEvent, int nID ) {
+		int nResult = WND_RESULT_NO;
+		if ( m_pParent )
+		{
+			nResult = m_pParent.OnMessage( nUIEvent, nID );
+		}
+		else
+		{
+
+		}
+		return nResult;
+	}
+	int SendMessageToParent( int nUIEvent, const int& nID ){
+		int nRes = WND_RESULT_NO;
+		if( m_pParent )
+		{
+			nRes = m_pParent.SendMessage( nUIEvent, nID );
+		}
+		return nRes;
+	}
+	int ProcessKeyboardMessage( int keyPress, int keyType, int keyValue ) {
+		
+		int nRes = WND_RESULT_NO;
+		if (keyType != CODED && keyPress == INPUT_KEYDOWN ) {
+			nRes = OnChar( keyType, keyValue );
+			//println("onchar");
+		}
+		if( nRes == WND_RESULT_NO )
+		{
+			if( keyPress == INPUT_KEYDOWN  )
+			{
+				nRes = OnKeyDown( keyType, keyValue );
+			}
+			else if( keyPress == INPUT_KEYUP  )
+			{
+				nRes = OnKeyUp( keyType, keyValue );
+			}
+		}
+
+		return nRes;
+	}
+	int OnKeyboardMessage( int keyPress, int keyType, int keyValue ) {
+		int nRes = WND_RESULT_NO;
+		if(!IsVisible() || !IsWindowEnabled())
+			return nRes;
+
+		for (int idx = arrayChild.size()-1; idx >= 0; idx--) {
+			CWndBase pWnd = (CWndBase) this.arrayChild.get( idx );
+			if ( pWnd )
+			{
+				nRes = pWnd.OnKeyboardMessage( keyPress, keyType, keyValue );
+			}
+		}	
+		if( nRes == WND_RESULT_NO )
+		{
+			nRes = ProcessKeyboardMessage( keyPress, keyType, keyValue );
+		}
+
+		return nRes;
+	}
+	boolean Create( int posx, int posy, int cx, int cy, CWndBase pWnd, int nID ) {
+		SetRect( this.m_rcRect,posx,posy,cx, cy);
+		//println(m_rcRect.left + " " + m_rcRect.right + " " + m_rcRect.top + " " + m_rcRect.bottom);
+		SetDlgID( nID );
+		SetParent( pWnd );
+		return true;
+	}
+	void SetDlgID( int nID ) {
+		m_nDlgID = nID;
+	}
+	void SetWindowTop() {
+		for ( int idx = 0; idx < this.m_pParent.arrayChild.size(); idx++ ) {
+			CBase pWnd = (CBase)this.m_pParent.arrayChild.get(idx);
+			if ( this == pWnd )
+			{
+				CBase pRemoveWnd = this.m_pParent.arrayChild.remove(idx);
+				this.m_pParent.arrayChild.add( pRemoveWnd );
+				break;
+			}
+		}
+	}
+	void MoveDirect( int nDir, int nValue ) {
+		if( nDir == m_nDirRight ) {
+			MoveWindow( this.m_rcRect.left + nValue, this.m_rcRect.top );
+		}
+		else if( nDir == m_nDirLeft ) {
+			MoveWindow( this.m_rcRect.left - nValue, this.m_rcRect.top );
+		}
+		else if( nDir == m_nDirUp ) {
+			MoveWindow( this.m_rcRect.left , this.m_rcRect.top - nValue );
+		}
+		else if( nDir == m_nDirDown ) {
+			MoveWindow( this.m_rcRect.left , this.m_rcRect.top + nValue );
+		}
+	}
+	void MoveWindow( int posx, int posy ) {
+		this.m_rcRect.right 	+= ( posx - this.m_rcRect.left );
+		this.m_rcRect.left 		= posx;
+		this.m_rcRect.bottom 	+= ( posy - this.m_rcRect.top);
+		this.m_rcRect.top 		= posy;
+		this.CheckAbsWnd();
+	}
+	void ResizeWindow( int cx, int cy ) {
+		this.m_rcRect.right 	= this.m_rcRect.left + cx;
+		this.m_rcRect.bottom 	= this.m_rcRect.top + cy;
+		this.CheckAbsWnd();
+	}
+	void removeChild( CWndBase pChild ) {
+		for (int idx = arrayChild.size()-1; idx >= 0; idx--) {
+			CWndBase pWnd = (CWndBase) this.arrayChild.get( idx );
+			if ( pWnd == pChild )
+			{
+				this.arrayChild.remove( idx );
+				break;
+			}
+		}
+	}
+	void setBoxColor( color crBox ) {
+		m_crBox = crBox;
+	}
+	void drawBox()
+	{
+		if( this.m_bVisible && this.m_bShowBox ) {
+			line(m_rcAbsWnd.left, m_rcAbsWnd.top, m_rcAbsWnd.right, m_rcAbsWnd.top);			
+			line(m_rcAbsWnd.left, m_rcAbsWnd.bottom , m_rcAbsWnd.right, m_rcAbsWnd.bottom );
+			line(m_rcAbsWnd.left, m_rcAbsWnd.top, m_rcAbsWnd.left, m_rcAbsWnd.bottom );
+			line(m_rcAbsWnd.right, m_rcAbsWnd.top, m_rcAbsWnd.right, m_rcAbsWnd.bottom );
+			stroke(m_crBox);
+			
+			//println(m_rcAbsWnd.left + " " + m_rcAbsWnd.right + " " + m_rcAbsWnd.top + " " + m_rcAbsWnd.bottom);
+		}
+	}
+	void GetWindowRect( CRect rc )
+	{
+		copyRect( rc, this.m_rcAbsWnd);
+	}
+	void onDraw()
+	{
+		if( m_bVisible ) {
+			for ( int idx = 0; idx < arrayChild.size(); idx++ ) {
+				CWndBase pWnd = (CWndBase) this.arrayChild.get( idx );
+				pWnd.onDraw();
+				pWnd.drawBox();
+			}
+		}
+	}
+	void CheckAbsWnd()
+	{
+		copyRect( this.m_rcAbsWnd, this.m_rcRect );
+		//println(m_rcRect.left + " " + m_rcRect.right + " " + m_rcRect.top + " " + m_rcRect.bottom);
+		if( this.m_bDragWithParent )
+		{
+			if( this.m_pParent )
+			{
+				offsetRect( m_rcAbsWnd, m_pParent.m_rcAbsWnd.left, m_pParent.m_rcAbsWnd.top);
+			}
+			for ( int idx = 0; idx < arrayChild.size(); idx++ ) {
+				CWndBase pWnd = (CWndBase) this.arrayChild.get( idx );
+				if ( pWnd != 0 && pWnd.m_bDragWithParent == true)
+				{
+					pWnd.CheckAbsWnd();
+				}
+			}
+		}
+	}
+	void SetParent( CWndBase pWnd )
+	{
+		if ( this.m_pParent != 0 )
+		{
+			this.m_pParent.removeChild(this);
+		}
+		this.m_pParent = pWnd;
+		if ( this.m_pParent != 0 )
+		{
+			pWnd.arrayChild.add(this);
+			//println(this.m_nDlgID);
+			this.CheckAbsWnd();
+		}
+	}
+	boolean IsVisible()
+	{
+		return m_bVisible;
+	}
+	boolean IsWindowEnabled()
+	{
+		return true;
+	}
+	boolean NeedMouseInput() {
+		return m_bNeedMouseInput;
+	}
+	
+	CPoint GetClientPos() {
+		CPoint pt = new CPoint(0,0);
+		pt.x = m_rcRect.left;
+		pt.y = m_rcRect.top;
+		return pt;
+	}
+	
+	CSize GetClientSize() {
+		CSize sz = new CSize();
+		sz.cx = m_rcRect.right - m_rcRect.left;
+		sz.cy = m_rcRect.top - m_rcRect.bottom;
+		return sz;
+	}
+
+	boolean PtInWnd( CPoint pt ) 
+	{
+		for ( int idx = 0; idx < arrayChild.size(); idx++ ) {
+			CWndBase pWnd = (CWndBase) this.arrayChild.get( idx );
+			if(pWnd.IsVisible() && pWnd.PtInWnd(pt)){
+				return true;
+			}
+		}
+		
+		RECT rcWnd = new CRect(0,0,0,0);
+		this.GetWindowRect(rcWnd);
+		
+		if ( PtInRect(rcWnd, pt))
+		{
+			rcWnd = 0;
+			return true;
+		}
+		
+		rcWnd = 0;
+		return false;
+	}
+	CWndBase GetChildWndPtIn( CPoint pt )
+	{
+		CWndBase pWnd = 0;
+
+		for (int idx = this.arrayChild.size()-1; idx >= 0; idx--) {
+			CWndBase pWnd = (CWndBase) this.arrayChild.get( idx );
+			if( pWnd.IsVisible() && pWnd.NeedMouseInput() && pWnd.PtInWnd(pt) ) return pWnd;
+		}
+		
+		return null;
+	}
+	int OnMouseInput( )
+	{
+		if(!IsVisible())
+			return 0;
+
+		int lRes = 0;
+
+		CWndBase pWnd = GetChildWndPtIn(m_ptMouse);
+		if(!pWnd) 
+		{
+			m_pWndCursorIn = this;
+		}
+
+		if(!IsWindowEnabled())
+		{
+			return 1;
+		}
+
+		if( pWnd )
+		{
+			lRes = pWnd.OnMouseInput();
+		}
+
+		if(lRes == 0)
+		{
+			lRes = ProcessMouseInput();
+		}
+
+		return lRes;
+	}
+	int ProcessMouseInput( )
+	{
+		int lRes = WND_RESULT_NO;
+		
+		try {
+			int nFlags = 0;
+			if(m_bLPressed)
+			{
+				lRes = OnLButtonDown(nFlags,m_ptMouse);
+				s_pWndLBDown = this;
+				//println("down down " + s_pWndLBDown.m_nDlgID);
+				//println("down this " + this.m_nDlgID);
+			}
+			if(m_bLReleased)
+			{
+				lRes = OnLButtonUp(nFlags,m_ptMouse);
+				//println("release down " + s_pWndLBDown.m_nDlgID);
+				//println("release this " + this.m_nDlgID);
+				if(s_pWndLBDown == this) {
+					OnLButtonClick(nFlags, m_ptMouse);
+				}
+				else {
+					//println(s_pWndLBDown.m_nDlgID + " " + this.m_nDlgID);
+				}
+				if ( lRes == WND_RESULT_YES )
+				{
+					m_bLReleased = false
+				}
+			}
+			if(m_bRPressed)
+			{
+				lRes = OnRButtonDown(nFlags, m_ptMouse);
+			}
+			if(m_bRReleased)
+			{
+				lRes = OnRButtonUp(nFlags,m_ptMouse);
+				if ( lRes == WND_RESULT_YES )
+				{
+					m_bRReleased = false
+				}
+			}
+			if ( lRes == WND_RESULT_NO )
+			{
+				lRes = OnMouseMove(nFlags, m_ptMouse);
+			}
+		}
+		catch ( e ) {
+			println(e );
+		}
+		
+		return lRes;
+	}
+	int OnRButtonDown(int nFlags,CPoint point) {
+		return WND_RESULT_NO;
+	}
+	int OnRButtonUp(int nFlags,CPoint point){
+		return WND_RESULT_NO;
+	}
+	int OnLButtonDown(int nFlags,CPoint point){
+		return WND_RESULT_NO;
+	}
+	int OnLButtonUp(int nFlags,CPoint point){
+		return WND_RESULT_NO;
+	}
+	int OnLButtonClick(int nFlags, CPoint point){
+		return WND_RESULT_NO;
+	}
+	int OnMouseMove(int nFlags,CPoint point){
+		return WND_RESULT_NO;
+	}
+	int OnMouseMoveIn(int nFlags,CPoint point){
+		return WND_RESULT_NO;
+	}
+	int OnMouseMoveOut(int nFlags,CPoint point){
+		return WND_RESULT_NO;
+	}
+}
+class CPoint {
+	int			x = 0;
+	int			y = 0;
+	CPoint( int x, int y )
+	{
+		this.x = x;
+		this.y = y;
+	}
+}
+class CSize {
+	int			cx = 0;
+	int			cy = 0;
+	CSize( ) {
+	}
+}
+class CWndDesktop extends CWndBase {
+	CWndDesktop() {
+		super();
+	}
+	int OnChar ( int keyType, int keyValue ) {
+			int nRes = WND_RESULT_NO;
+			//println("wnd onchar " + int(key) + " " + keyCode);
+			//super.OnChar( keyType, keyValue );
+			return nRes;
+		}
+		
+	int OnMouseMove(int nFlags,CPoint point){
+		return WND_RESULT_NO;
+	}
+}
+class CWndButtonText extends CWndButton {
+	CWndText m_pText = null;
+	CWndButtonText(){
+		super();
+	}
+	boolean Create( int posx, int posy, int cx, int cy, CWndBase pWnd, int nID, String text ) {
+		boolean bRes = super.Create( posx, posy, cx, cy, pWnd, nID );
+		m_pText = new CWndText();
+		m_pText.Create(0,0,0,0,this,0);
+		m_pText.SetText(text);
+		return bRes;
+	}
+}
+class CWndButton extends CWndBase {
+	CWndTga m_pPic = null;
+	CWndButton() {
+		super();
+	}
+	boolean Create( int posx, int posy, int cx, int cy, CWndBase pWnd, int nID ) {
+		boolean bRes = super.Create( posx, posy, cx, cy, pWnd, nID );
+		m_pPic = new CWndTga("",0,0);
+		m_pPic.Create( 0,0,0,0, this,1);
+		return bRes;
+	}
+	void SetDataFile( String res, int col, int row ){
+		if ( m_pPic != null ) {
+			m_pPic.SetDataFile( res, col, row );
+		}
+	}
+	void setFrame( int nFrame ) {
+		if ( m_pPic != null ) {
+			m_pPic.setFrame( nFrame );
+		}
+	}
+	void SetDrawRate( float fRate ) {
+		if ( m_pPic != null ) {
+			m_pPic.SetDrawRate( fRate );
+			ResizeWindow(m_pPic.m_nDrawWidth,m_pPic.m_nDrawHeight);
+		}
+	}
+	int OnLButtonClick(int nFlags, CPoint point){
+		onClick();
+		return WND_RESULT_YES;
+	}
+	void onClick() {
+		//println("click = " + m_nDlgID);
+		SendMessageToParent(WND_EVENT_CLICK,m_nDlgID);
+	}
+	int OnLButtonDown(int nFlags,CPoint point){	
+		//println("OnLButtonDown = " + m_nDlgID);
+		return WND_RESULT_YES;
+	}
+	int OnLButtonUp(int nFlags,CPoint point){
+		//println("OnLButtonUp = " + m_nDlgID);
+		return WND_RESULT_YES;
+	}
+}
+class CWndTga extends CWndBase {
+	PImage 	pImgFlip;
+	PImage 	pImgDraw = 0;
+	PImage 	pImgSrc;
+	boolean m_bPlaying = false;
+	int		m_nFrameWidth = 0;
+	int		m_nFrameHeight = 0;
+	boolean m_bMirror = false;
+	int 	m_nCurFrame = 0;
+	int		m_nFrameCol	= 0;
+	int		m_nFrameRow	= 0;
+	int		m_nMaxFrame	= 0;
+	color	m_nColorKey = color(0,0,0,0);
+	
+	int		m_nDrawWidth 	= 0;
+	int		m_nDrawHeight 	= 0;
+	
+	float	m_fRate		= 1.0;
+	boolean	m_bColorKey	= false;
+	long	m_lTickCount	= 0;
+	//constructor
+	CWndTga(String strRes, int col, int row ) 
+	{
+		try
+		{
+			super();
+			
+			m_bNeedMouseInput	= false;
+			SetDataFile( strRes, col, row ) ;
+		}
+		catch(e)
+		{
+			println(e);
+		}
+	}
+	void SetDataFile( String strRes, int col, int row ) {
+		try
+		{
+			this.m_nFrameCol 	= col;
+			this.m_nFrameRow	= row;
+			this.pImgSrc = loadImage(strRes);
+			this.m_nFrameWidth 	= this.pImgSrc.width / col;
+			this.m_nMaxFrame = col * row;
+			this.m_nFrameHeight = this.pImgSrc.height / row;
+			
+			m_nDrawWidth = this.m_nFrameWidth;
+			m_nDrawHeight = this.m_nFrameHeight;
+			this.pImgFlip = createImage(this.pImgSrc.width, this.pImgSrc.height, ARGB);
+			this.flipImg();
+			changeFrame();
+		}
+		catch(e)
+		{
+			println(e);
+		}
+	}
+	void OnUpdate( long nOffset ) {
+		super.OnUpdate( nOffset );
+		if( m_bPlaying ) {
+			long m_lTime = 100;
+			m_lTickCount += nOffset;
+			if( m_lTickCount >= m_lTime ) {
+				m_lTickCount -= m_lTime;
+				addFrame();
+			}
+		}
+	}
+	boolean Create( int posx, int posy, int cx, int cy, CWndBase pWnd, int nID ) {
+		super.Create( posx, posy, cx, cy, pWnd, nID );
+		ResizeWindow(this.pImgSrc.width,this.pImgSrc.height);
+	}
+	void SetColorKey( color nColor ) {
+		m_nColorKey = nColor;
+		m_bColorKey = true;
+		flipImg();
+		changeFrame();
+	}
+	void SetMirror( boolean bMirror )
+	{
+		this.m_bMirror = bMirror;
+	}
+	void SetDrawRate( float fRate ){
+		m_fRate = fRate;
+		m_nDrawWidth = this.m_nFrameWidth * fRate;
+		m_nDrawHeight = this.m_nFrameHeight * fRate;
+		ResizeWindow(m_nDrawWidth,m_nDrawHeight);
+	}
+	void setFrame( int nFrame )
+	{
+		try
+		{
+			if ( this.m_nCurFrame != nFrame && nFrame < m_nMaxFrame )
+			{
+				this.m_nCurFrame = nFrame;
+				changeFrame();
+			}
+		}
+		catch(e)
+		{
+			println("setFrame " + e);
+		}
+	}
+	int getFrame( ) {
+		return this.m_nCurFrame;
+	}
+	int getFrame( ){ 
+		return this.m_nCurFrame;
+	}
+	void changeFrame()
+	{
+		try
+		{
+			int nDrawFrame = this.m_nCurFrame;
+			if( this.m_bMirror == true )
+			{
+				int nCurCol = m_nFrameCol - m_nCurFrame % m_nFrameCol - 1;
+				int nCurRow = Math.floor(this.m_nCurFrame / m_nFrameCol);
+				this.pImgDraw = this.pImgFlip.get( nCurCol * m_nFrameWidth,nCurRow * m_nFrameHeight,this.m_nFrameWidth,this.m_nFrameHeight)
+			}
+			else
+			{
+				int nCurCol = m_nCurFrame % m_nFrameCol;
+				int nCurRow = Math.floor(this.m_nCurFrame / m_nFrameCol);
+				this.pImgDraw = this.pImgSrc.get( nCurCol * m_nFrameWidth,nCurRow * m_nFrameHeight,this.m_nFrameWidth,this.m_nFrameHeight)
+			}
+		}
+		catch(e)
+		{
+			println("changeframe " + e);
+		}
+	}
+	void addFrame()
+	{
+		this.m_nCurFrame++;
+		if( this.m_nCurFrame >= this.m_nFrameCol )
+		{
+			this.m_nCurFrame = 0;
+		}
+		changeFrame();
+	}
+	void onDraw()
+	{
+		if( m_bVisible ) {
+			try
+			{
+				if( this.pImgDraw != 0 )
+				{
+					image( this.pImgDraw, this.m_rcAbsWnd.left, this.m_rcAbsWnd.top,m_nDrawWidth,m_nDrawHeight );
+				}
+				else
+				{
+					//println("pImgDraw == 0 ");
+				}
+				super.onDraw();
+			}
+			catch(e)
+			{
+				println("draw " + e);
+			}
+		}
+	}
+	void flipImg()
+	{
+		try
+		{
+			for( var hei = 0; hei < this.pImgSrc.height; hei++ )
+			{
+				var wid = this.pImgSrc.width - 1;
+				var widDst = 0;
+				for( ; wid >= 0; wid-- )
+				{
+					var vIndex = ((this.pImgSrc.width * hei) + wid);
+					var vDstIndex = ((this.pImgSrc.width * hei) + widDst);
+					
+					color dstColor = this.pImgSrc.pixels[vIndex];
+					if( m_bColorKey ) {
+						if( m_nColorKey == dstColor ) {
+							
+							int colorA = dstColor >> 24 & 0xFF;
+
+							int colorR = dstColor >> 16 & 0xFF;
+
+							int colorG = dstColor >> 8 & 0xFF;
+
+							int colorB = dstColor & 0xFF;
+							//println(colorA + " " + colorR + " " + colorG + " " + colorB);
+							dstColor = color(colorR,colorG,colorB,0);
+							this.pImgSrc.pixels[vIndex] = dstColor;
+						}
+					}
+					this.pImgSrc.pixels[vIndex] = dstColor;
+					this.pImgFlip.pixels[vDstIndex] = dstColor;
+					widDst++;
+				}
+			}
+		}
+		catch(e)
+		{
+			println("flipimg " + e);
+		}
+	}
+}
+class CWndText extends CWndBase {
+	int		m_nColorR	= 255;
+	int		m_nColorG	= 255;
+	int		m_nColorB	= 255;
+	int		m_nAlpha	= 255;
+	String	m_strText	= "";
+	int		m_nTextSize	= 14;
+	CWndText()
+	{
+		super();
+	}
+	void SetFontSize( int nSize ) {
+		m_nTextSize = nSize;
+	}
+	void SetColor( int crR, int crG, int crB ) {
+		this.m_nColorR = crR;
+		this.m_nColorG = crG;
+		this.m_nColorB = crB;
+	}
+	void SetText( String text )
+	{
+		this.m_strText = text;
+	}
+	boolean Create( int posx, int posy, int cx, int cy, CWndBase pWnd, int nID ) {
+		super.Create( posx, posy, cx, cy, pWnd, nID );
+	}
+	void onDraw() {
+		if ( m_bVisible ) {
+			
+			textFont(fontA, m_nTextSize);
+			fill(this.m_nColorR, this.m_nColorG, this.m_nColorB,m_nAlpha);
+			text(this.m_strText, m_rcAbsWnd.left + 0 ,m_rcAbsWnd.top + 10);
+		}
+	}
+}
+class CBuilding extends CObject{
+	int 		m_nCost;
+	String 		m_strName;
+	int			m_nColor;
+	CBuilding() {
+		super();
+		m_nColor 	= g_nBuildingColorNone;
+		m_nCost		= 0;
+		m_strName	= "";
+	}
+	void toString() {
+		println("Building: name is " + m_strName + " cost = " + m_nCost + " color = " + m_nColor);
+	}
+	void Set( int nColor, int nCost, String strName ) {
+		m_nColor 	= nColor;
+		m_nCost		= nCost;
+		m_strName	= strName;
+	}
+}
+class CPlayer extends CWndBase{
+	int				m_nIndex				= 0;
+	
+	CPlayer			m_pLastPlayer			= null;
+	CPlayer			m_pNextPlayer			= null;
+	static CPlayer	s_pNextKing				= null;
+		
+	//建造的房子.
+	ArrayList 		m_BuildingBuild;	
+	//房子背包.未建造房子.
+	ArrayList 		m_BuildingBag;	
+	CWndTga			m_pCharacterTga			= null;
+	boolean			m_bPlayer				= false;
+	boolean			m_bKing;
+	int				m_nStatus;
+	int				m_nMoney;
+	int				m_nCurrentCharacter;
+		
+	static int 		m_nStatusNormal			= 0;
+	static int 		m_nStatusMoneyStolen	= 1;
+	static int 		m_nStatusDie			= 2;
+	
+	CWndText		m_pText					= null;
+		
+	CPlayer() {	
+		super();	
+		m_BuildingBuild						= new ArrayList();
+		m_BuildingBag						= new ArrayList();
+		Init();
+	}
+	int CalculatePlayerScore() {
+		int nTotalScore = 0;
+		ArrayList arrayColor = new ArrayList();
+		for( int idxBuilded = 0; idxBuilded < m_BuildingBuild.size(); idxBuilded++ ){
+			CBuilding pBuilding = (CBuilding)m_BuildingBuild.get(idxBuilded);
+			nTotalScore += pBuilding.m_nCost;
+			boolean bFind = false;
+			int nFindColor = g_nBuildingColorNone;
+			for( int idxColor = 0; idxColor < arrayColor.size(); idxColor++ ){
+				if( pBuilding.m_nColor == nFindColor ) {
+					nFindColor = (int)arrayColor.get(idxColor);
+					bFind = true;
+					break;
+				}
+				else{
+				}
+			}
+			if( nFindColor == g_nBuildingColorNone ) {
+				arrayColor.add(pBuilding.m_nColor);
+			}			
+		}
+		if( arrayColor.size() >= g_nDifferentBuildingCount ){
+			nTotalScore += g_nFiveDifferentBuildingScore;
+		}
+		if( this == g_pPlayerFirstBuild ){
+			nTotalScore += g_nFirstBuildingScore;
+		}
+		if( this != g_pPlayerFirstBuild && m_BuildingBuild.size() >= g_nGameOverCondition ){
+			nTotalScore += g_nNextBuildingScore;
+		}
+		nTotalScore += m_nMoney;
+		return nTotalScore;
+	}
+	void SetKing() {
+		g_pCrown.SetParent(this);
+		g_pCrown.showWindow(true);
+		m_bKing = true;
+	}
+	void SetPlayer() {
+		m_bPlayer = true;
+		g_pPlayerFlag.SetParent(this);
+	}
+	void Init() {
+		//m_bPlayer					= false;
+		//m_nIndex					= 0;
+		m_nMoney					= 0;
+		m_BuildingBuild.clear();
+		m_BuildingBag.clear();
+	}
+	void GetMoney() {
+		return m_nMoney;
+	}
+	void AddMoney( int nMoney ) {
+		m_nMoney += nMoney;
+		playerStatusChange();
+	}
+	void SubMoney( int nMoney ) {
+		m_nMoney -= nMoney;
+		playerStatusChange();
+	}
+	void Killed(){
+		m_nStatus = m_nStatusDie;
+	}
+	void Stolen(){
+		m_nStatus = m_nStatusMoneyStolen;
+	}
+	void RoundInit() {
+		m_bKing						= false;
+		m_nStatus 					= m_nStatusNormal;
+		m_nCurrentCharacter 		= g_nCharacterNone
+		m_pCharacterTga.showWindow(false);
+	}
+	boolean isCharacterAssign(){
+		return m_nCurrentCharacter != g_nCharacterNone;
+	}
+	boolean Create( int posx, int posy, int cx, int cy, CWndBase pWnd, int nID ) {
+		boolean bRes 	= super.Create( posx, posy, cx, cy, pWnd,nID);
+		m_pCharacterTga = new CWndTga("",1,1);
+		m_pCharacterTga.Create(0,0,0,0,this,1);
+		m_pCharacterTga.SetDrawRate(g_fRateShowPlayer);
+		m_pCharacterTga.changeFrame();
+		
+		m_pText = new CWndText();
+		m_pText.Create(0,140,0,0,this,0);
+		m_pText.SetFontSize(18);
+		return bRes;
+	}
+	void playerStatusChange( ) {
+		String strText = "Coin: $" + m_nMoney + "\n";
+		for( int idxBuilding = 0; idxBuilding < m_BuildingBuild.size(); idxBuilding++ ){
+			CBuilding pBuilding = (CBuilding)m_BuildingBuild.get( idxBuilding );
+			strText = strText + "b:"+ pBuilding.m_strName + " ( " + pBuilding.m_nCost + " )\n";
+		}
+		for( int idxBuildingBag = 0; idxBuildingBag < m_BuildingBag.size(); idxBuildingBag++ ){
+			CBuilding pBuilding = (CBuilding)m_BuildingBag.get( idxBuildingBag );
+			if( pBuilding == null ) {
+				println(" alert " + idxBuildingBag + " " + g_strCharacter[m_nCurrentCharacter - 1]);
+			}
+			strText = strText  + pBuilding.m_strName + " (" + pBuilding.m_nCost + ")\n";
+		}
+		
+		m_pText.SetText(strText);
+	}
+	void SetCharacter( int nCurCharacter ) {
+		if( nCurCharacter == g_nCharacterKing ) {
+			s_pNextKing = this;
+		}
+		else if( nCurCharacter == g_nCharacterThief ){
+			g_pThief = this;
+		}
+		m_pCharacterTga.showWindow(true);
+		m_nCurrentCharacter = nCurCharacter;
+		String strRes 		= "Citadels/" + nCurCharacter + ".png";
+		m_pCharacterTga.SetDataFile(strRes,1,1);
+		m_pCharacterTga.SetDrawRate(g_fRateShowPlayer);
+		m_pCharacterTga.changeFrame();
+		playerStatusChange();
+	}
+	void GiveBuilding( CBuilding pBuild ) {
+		m_BuildingBag.add( pBuild );
+		if( pBuild == null ) {
+			println("alert alertalert alertalert alertalert alertalert alert");
+		}
+		playerStatusChange();
+	}
+	CBuilding TakeBuildingInBag( int nIdx ) {
+		CBuilding pBuilding = (pBuilding)m_BuildingBag.remove( nIdx );
+		playerStatusChange();
+		return pBuilding;
+	}
+	boolean TakeBuilding( CBuilding pBuilding ) {
+		for( int idxBuilding = 0; idxBuilding < m_BuildingBag.size(); idxBuilding++ ){
+			CBuilding pBuildingRemove = m_BuildingBag.get(idxBuilding);
+			if( pBuildingRemove == pBuilding ) {
+				playerStatusChange("takebuilding");
+				m_BuildingBag.remove(idxBuilding);
+				playerStatusChange();
+				return true;
+			}
+		}
+		return false;
+	}
+	void BuildBuilding( CBuilding pBuilding ) {
+		m_BuildingBuild.add(pBuilding);
+		if( m_BuildingBuild.size() >= g_nGameOverCondition ){
+			g_pPlayerFirstBuild = this;
+		}
+		playerStatusChange();
+	}
+	CBuilding DestroyBuilding( int nIndex ){
+		CBuilding pBuilding = (pBuilding)m_BuildingBuild.remove(nIdx )
+		playerStatusChange();
+		return pBuilding;
+	}
+}
+void QuickSort(ArrayList data, int left, int right){
+	int tempCharacter = data.get( left );
+	int p = left;
+	int i = left, j = right;
+	//(a)=(a)+(b);(b)=(a)-(b);(a)=(a)-(b);
+	while (i <= j) //应该是i<j,i=j就说明只有1个元素，不需要比较了。
+	{
+		while (j >= p && data.get(j) >= tempCharacter){
+			j--;
+		}
+		if(j >= p){
+		
+				data.set(p, data.get(p) + data.get(j));
+				data.set(j, data.get(p) - data.get(j));
+				data.set(p, data.get(p) - data.get(j));
+				
+				p 	= p + j;
+				j 	= p - j;
+				p	= p - j;
+		}
+
+		while (i <= p && data.get(i) <= tempCharacter){
+			i++;
+		}
+		if (i <= p){
+			data.set(p, data.get(p) + data.get(i));
+			data.set(i, data.get(p) - data.get(i));
+			data.set(p, data.get(p) - data.get(i));
+			
+			p 	= p + i;
+			i 	= p - i;
+			p	= p - i;
+		}
+	}
+	data.set(p,tempCharacter);
+	if(p - left > 1) {
+		QuickSort(data, left, p - 1 );
+	}
+	if(right - p > 1) {
+		QuickSort(data, p + 1, right );
+	}
+}
+
+void randObjectExecute ( tmpObject, randObject ) {
+	//tmpObject暂时不用传入参数
+	ArrayList showObject = new ArrayList();
+	showObject.clear();
+	int nArrayLen = randObject.size();
+	if ( nArrayLen > 0 )
+	{
+		for ( int idx = 0; idx < randObject.size(); idx++ ) {
+			CObject pBase = (CObject) randObject.get( idx );
+			showObject.add( pBase );
+		}
+		randObject.clear();
+		while ( true ) {
+			if ( showObject.size() > 0 ) {
+				noiseSeed(0);
+				int szArray = showObject.size();
+				int nIndex = (int)random(0,szArray) ;
+				CObject pBase = (CObject) showObject.remove( nIndex );
+				randObject.add( pBase );
+			}
+			else
+			{
+				break;
+			}
+		}
+		
+	}
+}
+class CAction {
+	int				m_nCurrentCharacter;
+	CAction() {
+		m_nCurrentCharacter	= g_nCharacterNone;
+	}
+	boolean doAction( CPlayer pActionPlayer, int nTargetCharacter, CPlayer pTargetPlayer, int nActionParam , ArrayList arrayLst ) {
+		doBaseAction();
+		return true;
+	}
+	void doBaseAction() {
+		println(g_strCharacter[pActionPlayer.m_nCurrentCharacter - 1] + ":执行了< " + g_strCharacterAction[pActionPlayer.m_nCurrentCharacter - 1] +" >");
+	}
+}
+int GetFactGainGold( int nDstGoldCount ) {
+	int nFactGoldCount = 0;
+	if( g_nBankGold >= nDstGoldCount ){
+		g_nBankGold -= nDstGoldCount;
+		nFactGoldCount	= nDstGoldCount;
+		bRes = true;
+	}
+	else{
+		nFactGoldCount = g_nBankGold;
+	}
+	return nFactGoldCount;
+}
+class CActionBuild extends CAction {
+	CActionBuild(){
+		super();
+	}
+	boolean doAction( CPlayer pActionPlayer, int nTargetCharacter, CPlayer pTargetPlayer, int nActionParam, ArrayList arrayLst  ) {
+		super.doAction( pActionPlayer, nTargetCharacter, pTargetPlayer,nActionParam,arrayLst );
+		boolean bRes = false;
+		int nCostGold = 0;
+		for( int idxBuilding = 0; idxBuilding < arrayLst.size(); idxBuilding++ ){
+			CBuilding pBuilding = (CBuilding)arrayLst.get(idxBuilding);
+			nCostGold += pBuilding.m_nCost;
+		}
+		if( nCostGold <= pActionPlayer.m_nMoney ){
+			ArrayList arrayBuildingName = new ArrayList();
+			//println("building");
+			while( arrayLst.size() != 0 ) {
+				CBuilding pBuilding = (CBuilding)arrayLst.remove(0);
+				if( pBuilding == null ) {
+					println(pBuilding);
+				}
+				boolean bTakeRes = pActionPlayer.TakeBuilding(pBuilding);
+				if( bTakeRes ){
+					pActionPlayer.BuildBuilding(pBuilding);
+					arrayBuildingName.add(pBuilding.m_strName);
+				}
+				else{
+					println("error");
+				}
+			}
+			bRes = true;
+			pActionPlayer.SubMoney(nCostGold);
+			g_nBankGold += nCostGold;
+			for( int idxBuilding = 0; idxBuilding < arrayBuildingName.size(); idxBuilding++ ){
+				String strName = (String)arrayBuildingName.get(idxBuilding);
+				println(g_strCharacter[pActionPlayer.m_nCurrentCharacter - 1] + ":执行了< " + g_strCommonAction[g_nCommonActionBuild] +" > 建造了一栋建筑<" + strName +">");
+			}
+		}
+		else{
+			//println("cost to high " + nCostGold);
+		}
+		return bRes;
+	}
+	void doBaseAction() {
+	}
+}
+class CActionGetCoin extends CAction {
+	CActionGetCoin(){
+		super();
+	}
+	boolean doAction( CPlayer pActionPlayer, int nTargetCharacter, CPlayer pTargetPlayer, int nActionParam, ArrayList arrayLst  ) {
+		super.doAction( pActionPlayer, nTargetCharacter, pTargetPlayer,nActionParam,arrayLst );
+		boolean bRes = false;
+		int nGoldCount = GetFactGainGold(g_nRoundGold);
+		if( nGoldCount != 0 ){
+			pActionPlayer.AddMoney(nGoldCount);
+			bRes = true;
+		}
+		println(g_strCharacter[pActionPlayer.m_nCurrentCharacter - 1] + ":执行了< " + g_strCommonAction[g_nCommonActionCoin] + " > 获取到了(" + nGoldCount + ")金子" );
+		return bRes;
+	}
+	void doBaseAction() {
+	}
+}
+class CCommonActionGetBuilding extends CAction {
+	CCommonActionGetBuilding(){
+		super();
+	}
+	boolean doAction( CPlayer pActionPlayer, int nTargetCharacter, CPlayer pTargetPlayer, int nActionParam, ArrayList arrayLst  ) {
+		super.doAction( pActionPlayer, nTargetCharacter, pTargetPlayer,nActionParam,arrayLst );
+		boolean bRes = false;
+		if( g_pBuildingRest.size() >= 2 ){
+			if( nActionParam <= 1 ) {
+				bRes = true;
+				CBuilding pBuilding = null;
+				if( nActionParam == 0 ){
+					pBuilding = g_pBuildingRest.remove(nActionParam);
+					pActionPlayer.GiveBuilding(pBuilding);
+					pBuilding = g_pBuildingRest.remove(0);
+					g_pBuildingRest.add(pBuilding);
+				}
+				else{
+					pBuilding = g_pBuildingRest.remove(0);
+					g_pBuildingRest.add(pBuilding);
+					pBuilding = g_pBuildingRest.remove(0);
+					pActionPlayer.GiveBuilding(pBuilding);
+				}
+			}
+		}
+		else if( g_pBuildingRest.size() == 1 ){
+			CBuilding pBuilding = g_pBuildingRest.remove(0);
+			pActionPlayer.GiveBuilding(pBuilding);
+			bRes = true;
+		}
+		else{
+		}
+		if ( bRes ) {
+			println(g_strCharacter[pActionPlayer.m_nCurrentCharacter - 1] + ":执行了< " + g_strCommonAction[g_nCommonActionGainBuilding] + " > 获取到了(1)建筑" );
+		}		
+		return bRes;
+	}
+	void doBaseAction() {
+	}
+}
+class CActionKill extends CAction{
+	CActionKill() {
+		super();
+		m_nCurrentCharacter	= g_nCharacterAssassin;
+	}
+	boolean doAction( CPlayer pActionPlayer, int nTargetCharacter, CPlayer pTargetPlayer, int nActionParam, ArrayList arrayLst  ) {
+		if( nTargetCharacter == g_nCharacterAssassin ){
+			return false;
+		}
+		else{
+			super.doAction( pActionPlayer, nTargetCharacter, pTargetPlayer,nActionParam,arrayLst );
+			CPlayer pCharacterPlayer = m_hashChosenCharacter.get(nTargetCharacter);
+			if( pCharacterPlayer != null ){
+				pTargetPlayer.Killed();
+			}
+			println(g_strCharacter[nTargetCharacter - 1] + " 被杀了，他将不能执行该轮行动。");
+			return true;
+		}
+	}
+}
+class CActionSteal extends CAction{
+	CActionSteal(){
+		super();
+		m_nCurrentCharacter	= g_nCharacterThief;
+	}
+	void doAction( CPlayer pActionPlayer, int nTargetCharacter, CPlayer pTargetPlayer, int nActionParam, ArrayList arrayLst  ) {
+		if( nTargetCharacter == g_nCharacterAssassin || nTargetCharacter == g_nCharacterThief ){
+			return false;
+		}
+		else {
+			super.doAction( pActionPlayer, nTargetCharacter, pTargetPlayer,nActionParam,arrayLst );
+			CPlayer pCharacterPlayer = m_hashChosenCharacter.get(nTargetCharacter);
+			if( pCharacterPlayer != null ){
+				pTargetPlayer.Stolen();
+			}
+			println(g_strCharacter[nTargetCharacter - 1] + " 被偷了，将在当前轮交给小偷金币。");
+			return true;
+		}
+	}
+}
+class CActionMagic extends CAction{
+	CActionMagic(){
+		super();
+		m_nCurrentCharacter	= g_nCharacterWizard;
+	}
+	void doAction( CPlayer pActionPlayer, int nTargetCharacter, CPlayer pTargetPlayer, int nActionParam, ArrayList arrayLst ) {
+		if( pActionPlayer == pTargetPlayer ){
+			return false;
+		}
+		else {
+			super.doAction( pActionPlayer, nTargetCharacter, pTargetPlayer,nActionParam,arrayLst );
+			
+			if( pTargetPlayer ) {
+				int nTargetBuildingSize = pTargetPlayer.m_BuildingBag.size();
+				int nActionBuildingSize = pActionPlayer.m_BuildingBag.size();
+				
+				//从对方那里获取.
+				for( int idxBuilding = 0; idxBuilding < nTargetBuildingSize; idxBuilding++ ){
+					CBuilding pBuilding = pTargetPlayer.TakeBuildingInBag(0);
+					pActionPlayer.GiveBuilding(pBuilding);
+				}
+				//给对方自己的.
+				for( int idxBuildingGive = 0; idxBuildingGive < nActionBuildingSize; idxBuildingGive++ ){
+					CBuilding pBuilding = pActionPlayer.TakeBuildingInBag(0);
+					pTargetPlayer.GiveBuilding(pBuilding);
+				}
+				println(g_strCharacter[pActionPlayer.m_nCurrentCharacter - 1] + "进行" + g_strCharacterAction[pActionPlayer.m_nCurrentCharacter-1] + "，拿取了<" + pTargetPlayer + ">" + nActionBuildingSize + "牌 放弃了" + nActionBuildingSize + "牌");
+			}
+			else{
+				int nActionBuildingSize = arrayLst.size();
+				for( int idxBuilding = 0; idxBuilding < g_pBuildingRest.size() && idxBuilding < nActionBuildingSize; idxBuilding++ ){
+					CBuilding pBuilding = g_pBuildingRest.remove(0);
+					arrayLst.add(pBuilding);
+				}
+				for( int idxGiveBuilding = 0; idxGiveBuilding < arrayLst.size() && idxGiveBuilding < nActionBuildingSize;idxGiveBuilding++){
+					CBuilding pBuilding = arrayLst.remove(0);
+					g_pBuildingRest.add(pBuilding);
+				}
+				println(g_strCharacter[pActionPlayer.m_nCurrentCharacter - 1] + "进行" + g_strCharacterAction[pActionPlayer.m_nCurrentCharacter-1] + "，拿取了市场" + nActionBuildingSize + "牌 放弃了" + nActionBuildingSize + "牌");
+			}
+			return true;
+		}
+	}
+}
+class CActionRoyalty extends CAction{
+	CActionRoyalty(){
+		super();
+		m_nCurrentCharacter	= g_nCharacterKing;
+	}
+	void doAction( CPlayer pActionPlayer, int nTargetCharacter, CPlayer pTargetPlayer, int nActionParam, ArrayList arrayLst ) {
+		super.doAction( pActionPlayer, nTargetCharacter, pTargetPlayer,nActionParam,arrayLst );
+		int nAddMoney = 0;
+		for( int idxBuilding = 0; idxBuilding < m_BuildingBuild.size(); idxBuilding++ ){
+			CBuilding pBuilding = (CBuilding)m_BuildingBuild.get(idxBuilding);
+			if( pBuilding.m_nColor == g_nBuildingColorGold ){
+				nAddMoney += g_nRoyaltyGold;
+			}			
+		}
+		int nGoldCount = GetFactGainGold(nAddMoney);
+		println(g_strCharacter[pActionPlayer.m_nCurrentCharacter - 1] + "进行" + g_strCharacterAction[pActionPlayer.m_nCurrentCharacter-1] + "，拿取了皇室" + nGoldCount + "枚金子");
+		return true;
+	}
+}
+class CActionParish extends CAction{
+	CActionParish(){
+		super();
+		m_nCurrentCharacter	= g_nCharacterBishop;
+	}
+	void doAction( CPlayer pActionPlayer, int nTargetCharacter, CPlayer pTargetPlayer, int nActionParam, ArrayList arrayLst ) {
+		super.doAction( pActionPlayer, nTargetCharacter, pTargetPlayer,nActionParam,arrayLst );
+		int nAddMoney = 0;
+		for( int idxBuilding = 0; idxBuilding < m_BuildingBuild.size(); idxBuilding++ ){
+			CBuilding pBuilding = (CBuilding)m_BuildingBuild.get(idxBuilding);
+			if( pBuilding.m_nColor == g_nBuildingColorBlue ){
+				nAddMoney += g_nRoyaltyParish;
+			}			
+		}
+		int nGoldCount = GetFactGainGold(nAddMoney);
+		println(g_strCharacter[pActionPlayer.m_nCurrentCharacter - 1] + "进行" + g_strCharacterAction[pActionPlayer.m_nCurrentCharacter-1] + "，拿取了教区" + nGoldCount + "枚金子");
+		return true;
+	}
+}
+class CActionBusiness extends CAction{
+	CActionBusiness(){
+		super();
+		m_nCurrentCharacter	= g_nCharacterBusinessmen;
+	}
+	void doAction( CPlayer pActionPlayer, int nTargetCharacter, CPlayer pTargetPlayer, int nActionParam, ArrayList arrayLst ) {
+		super.doAction( pActionPlayer, nTargetCharacter, pTargetPlayer,nActionParam,arrayLst );
+		for( int idxBuilding = 0; idxBuilding < m_BuildingBuild.size(); idxBuilding++ ){
+			CBuilding pBuilding = (CBuilding)m_BuildingBuild.get(idxBuilding);
+			if( pBuilding.m_nColor == g_nBuildingColorGreen ){
+				nAddMoney += g_nRoyaltyBusiness;
+			}			
+		}
+		int nGoldCount = GetFactGainGold(nAddMoney);
+		println(g_strCharacter[pActionPlayer.m_nCurrentCharacter - 1] + "进行" + g_strCharacterAction[pActionPlayer.m_nCurrentCharacter-1] + "，拿取了市场" + nGoldCount + "枚金子");
+		nGoldCount = GetFactGainGold(g_nRoyaltyBusinessAdd);
+		println("额外获取了" + nGoldCount + "枚金币");
+		return true;
+	}
+}
+class CActionBuilder extends CAction{
+	CActionBuilder(){
+		super();
+		m_nCurrentCharacter	= g_nCharacterBuilder;
+	}
+	void doAction( CPlayer pActionPlayer, int nTargetCharacter, CPlayer pTargetPlayer, int nActionParam, ArrayList arrayLst ) {
+		super.doAction( pActionPlayer, nTargetCharacter, pTargetPlayer,nActionParam,arrayLst );
+		int nBuildingGet = 0;
+		for( int idxBuilding = 0; idxBuilding < g_pBuildingRest.size(); idxBuilding++ ){
+			if( idxBuilding < g_nBuilderExtraGainBuilding ){
+				CBuilding pBuilding = (CBuilding)g_pBuildingRest.remove(0);
+				pActionPlayer.GiveBuilding(pBuilding);
+				nBuildingGet++;
+			}
+		}
+		println(g_strCharacter[pActionPlayer.m_nCurrentCharacter - 1] + "进行" + g_strCharacterAction[pActionPlayer.m_nCurrentCharacter-1] + "，拿取了" + nBuildingGet + "建筑地");
+		return true;
+	}
+}
+class CActionQuell extends CAction{
+	CActionQuell(){
+		super();
+		m_nCurrentCharacter	= g_nCharacterArmy;
+	}
+	void doAction( CPlayer pActionPlayer, int nTargetCharacter, CPlayer pTargetPlayer, int nActionParam, ArrayList arrayLst ) {
+		super.doAction( pActionPlayer, nTargetCharacter, pTargetPlayer,nActionParam,arrayLst );
+		if( pActionPlayer == pTargetCharacter || pTargetCharacter.m_nCurrentCharacter == g_nCharacterBishop) {
+			return false;
+		}
+		CBuilding pBuilding = (CBuilding)pTargetCharacter.m_BuildingBuild.get( nActionParam );
+		if( pBuilding ){
+			int nCostMoney =  pBuilding.m_nCost - 1;
+			if( nCostMoney <= pActionPlayer.m_nMoney ) {
+				pActionPlayer.SubMoney( nCostMoney );
+				g_nBankGold += nCostMoney;
+				
+				g_pBuildingRest.add( pBuilding );
+				println(g_strCharacter[pTargetCharacter.m_nCurrentCharacter - 1] + "被拆除了一个建筑" );
+			}
+		}
+		else{
+			return false;
+		}
+		return true;
+	}
+}
+void NpcAIAction ( CPlayer pPlayer ) {
+
+	CAction pAction = null;
+	noiseSeed(0);
+	//常规行为
+	int nCommonAction = (int)random(0,g_nCommonActionGainBuilding + 1) ;
+	pAction = (CAction)g_mapCommonAction.get("" + nCommonAction);
+	pAction.doAction(pPlayer,g_nCharacterNone,null,0,null);
+	//建筑行为
+	pAction = (CAction)g_mapCommonAction.get("" + g_nCommonActionBuild);
+	ArrayList arrayBuilding = new ArrayList();
+	if( pPlayer.m_BuildingBag.size() > 0 ){
+		//println("build");
+		arrayBuilding.add((CBuilding)pPlayer.m_BuildingBag.get(0));
+		boolean bSuccess = pAction.doAction(pPlayer,g_nCharacterNone,null,0,arrayBuilding);
+	}
+}
+class CMainInput extends CWndBase {
+	ArrayList 		m_pCharacterCardRand;
+	ArrayList		m_pCharacter;
+		
+	ArrayList		m_pPlayers;
+		
+	ArrayList		m_pBuildingBack;
+		
+	ArrayList		m_pDownCharacter;
+	ArrayList 		m_pRoundAssignCharacter;
+	ArrayList		m_pPlayerChooseCharacter;
+	ArrayList		m_pChosenCharacter;
+	
+	HashMap			m_hashChosenCharacter	= null;;
+		
+		
+	boolean			m_bNewGame				= true;
+	CWndTga			m_pPlayerChooseBg		= null;
+	CWndBase		m_pPlayerChooseBase		= null;
+	CPlayer			m_pKing					= null;
+	CPlayer			m_pPlayer				= null;
+	int				m_nChooseBtnStart		= 100;
+	int				m_nChooseBuildingStart	= 200;
+	
+	int				m_nBtnNewGame			= 30;
+	int				m_nBtnPlayerGetCoin		= 31;
+	int				m_nBtnPlayerGetBuilding	= 32;
+	int				m_nBtnRoundStart		= 33;
+	
+	CWndBase		m_pLocalWndBase			= null;
+	CWndButtonText	m_pBtnNewGame			= null;
+	
+	CWndButtonText	m_pBtnPlayerGetCoin		= null;
+	CWndButtonText	m_pBtnPlayerGetBuilding	= null;
+	CWndButtonText	m_pBtnRoundStart		= null;
+	
+	Iterator 		m_itChosenCharacter		= null;
+	
+	CMainInput() {
+		super();		
+		try{
+			m_pRoundAssignCharacter		= new ArrayList();
+			m_pCharacterCardRand 		= new ArrayList();
+			m_pPlayers					= new ArrayList();
+				
+			m_pCharacter				= new ArrayList();
+				
+			m_pBuildingBack				= new ArrayList();
+			m_pDownCharacter			= new ArrayList();
+				
+			m_pPlayerChooseCharacter	= new ArrayList();
+			m_pChosenCharacter			= new ArrayList();
+			
+			m_hashChosenCharacter		= new HashMap();
+		}
+		catch(e){
+			println(e);
+		}
+	}
+	//游戏打开后的初始化.
+	void GameInit() {
+		println("开始--游戏数据初始化");
+		PlayerInit();
+		CharacterInit();
+		BuildingInit();
+		
+		m_pBtnNewGame			= new CWndButtonText();
+		m_pBtnNewGame.Create(200,500,70,20,this,m_nBtnNewGame,"New game");
+		m_pBtnNewGame.m_pText.SetFontSize(18);
+		m_pBtnNewGame.m_bShowBox = true;
+		
+		m_pLocalWndBase 		= new CWndBase();
+		m_pLocalWndBase.Create(100,300,0,0,this,0);
+		
+		m_pBtnPlayerGetCoin			= new CWndButtonText();
+		m_pBtnPlayerGetCoin.Create(50,0,70,20,m_pLocalWndBase,m_nBtnPlayerGetCoin,"获取金子");
+		m_pBtnPlayerGetCoin.m_pText.SetFontSize(18);
+		m_pBtnPlayerGetCoin.m_bShowBox = true;
+		
+		m_pBtnPlayerGetBuilding			= new CWndButtonText();
+		m_pBtnPlayerGetBuilding.Create(300,0,70,20,m_pLocalWndBase,m_nBtnPlayerGetBuilding,"获取建筑");
+		m_pBtnPlayerGetBuilding.m_pText.SetFontSize(18);
+		m_pBtnPlayerGetBuilding.m_bShowBox = true;
+		
+		m_pBtnRoundStart			= new CWndButtonText();
+		m_pBtnRoundStart.Create(200,0,70,20,m_pLocalWndBase,m_nBtnRoundStart,"回合开始");
+		m_pBtnRoundStart.m_pText.SetFontSize(18);
+		m_pBtnRoundStart.m_bShowBox = true;
+		
+		
+		ShowLocalWndBase(false,false,false);
+		
+		
+		m_pPlayerChooseBase 	= new CWndBase();
+		m_pPlayerChooseBase.Create( 100,250,0,0, this,1);
+		m_pPlayerChooseBase.showWindow(false);
+		m_pPlayerChooseBg 		= new CWndTga("Citadels/playerChooseBg.png",1,1);
+		m_pPlayerChooseBg.Create( 0,0,0,0, m_pPlayerChooseBase,1);
+		
+		for( int idxCharacter = 0; idxCharacter < g_nCharacterCounts; idxCharacter++ ){
+			CWndButton pChooseCharacter = new CWndButton();
+			pChooseCharacter.Create(idxCharacter * g_nPlayerChoseSpan,0,0,0,m_pPlayerChooseBase,0);
+			pChooseCharacter.SetDataFile("Citadels/1.png",1,1);
+			pChooseCharacter.SetDrawRate(g_fRateShowPlayer);
+			m_pPlayerChooseCharacter.add(pChooseCharacter);
+		}
+		println("结束--游戏数据初始化");
+	}
+	void PlayerGameInit() {
+		randObjectExecute(null,m_pPlayers);
+		CPlayer pFirstPlayer 	= null;
+		CPlayer pLastPlayer		= null;
+		int nLengthPlayers 		= m_pPlayers.size();
+		for ( int idxPlayer = 0; idxPlayer < nLengthPlayers; idxPlayer++ ) {
+			CWndBase pPlayer 	= (CWndBase) m_pPlayers.get( idxPlayer );
+			int nXPosition 		= idxPlayer * g_nPlayerSpan;
+			pPlayer.Init();
+			pPlayer.MoveWindow( nXPosition, 0 );
+			pPlayer.showWindow(true);
+			pPlayer.AddMoney( g_nInitGold );
+			//println("" + pPlayer.m_bPlayer + "" + nXPosition);
+			if( idxPlayer == 0 ){
+				pFirstPlayer 	= pPlayer;
+			}
+			pPlayer.m_pLastPlayer = pLastPlayer;
+			if( pLastPlayer != null ){
+				pLastPlayer.m_pNextPlayer = pPlayer;
+			}
+			pLastPlayer = pPlayer;
+		}
+		if( pFirstPlayer != null ) {
+			pFirstPlayer.m_pLastPlayer = pLastPlayer;
+			pLastPlayer.m_pNextPlayer  = pFirstPlayer;
+		}
+		
+		for ( int idxPlayer = 0; idxPlayer < nLengthPlayers; idxPlayer++ ) {
+			CWndBase pPlayer 	= (CWndBase) m_pPlayers.get( idxPlayer );
+			//println("" + pPlayer.m_pLastPlayer.m_nIndex + " " + pPlayer.m_pNextPlayer.m_nIndex);
+		}
+	}
+	void PlayerInit() {
+		int idxPlayer = 0;
+		noiseSeed(0);
+		int nNoneNpcPlayerIdx 	= (int)random(0,g_nMaxPlayerCounts) ;
+		for( ; idxPlayer < g_nMaxPlayerCounts ; idxPlayer++ ) {
+			CPlayer pPlayer = new CPlayer();
+			pPlayer.Create(0,0,50,50,this,0);
+			pPlayer.m_bShowBox = true;
+			pPlayer.m_nIndex = idxPlayer;
+			pPlayer.showWindow(false);
+			if( nNoneNpcPlayerIdx == idxPlayer ) {
+				pPlayer.SetPlayer();
+				m_pPlayer = pPlayer;
+			}
+			m_pPlayers.add(pPlayer);
+		}
+	}
+	void CharacterInit() {
+		for( int idxCharacter = 1; idxCharacter <= g_nMaxCharacterCount ; idxCharacter++ ) {
+			m_pCharacter.add( idxCharacter );
+		}
+	}
+	void BuildingInit() {
+		for( int idxBuilding = 1; idxBuilding <= g_nMaxBuildingCount; idxBuilding++ ) {
+			noiseSeed(0);
+			CBuilding pBuilding = new CBuilding();
+			
+			pBuilding.m_nColor 	= (int)random(g_nBuildingColorBlue,g_nBuildingColorGreen + 1) ;
+			if( pBuilding.m_nColor == g_nBuildingColorNone ) {
+				println("allert");
+			}
+			pBuilding.m_strName = g_strBuildingNames[pBuilding.m_nColor - 1];
+			pBuilding.m_nCost 	= (int)random(1,4);
+			m_pBuildingBack.add(pBuilding);
+		}
+	}
+	void RoundOver(){
+		println("Round over");
+		if( g_pPlayerFirstBuild == null ) {
+			ShowLocalWndBase(false,false,true);
+		}
+		else {
+			//统计分数.
+			CalculateScore();
+		}
+	}
+	void CalculateScore() {
+		CPlayer pMaxScorePlayer = null;
+		for( int idxPlayer = 0; idxPlayer < m_pPlayers.size(); idxPlayer++ ){
+			CPlayer pPlayer = (CPlayer)m_pPlayers.get(idxPlayer);
+			int nCurPlayerScore = pPlayer.CalculatePlayerScore();
+			println(g_strCharacter[pMaxScorePlayer.m_nCurrentCharacter - 1] + " 得到了 <" + nCurPlayerScore + ">分数");
+			if( pMaxScorePlayer == null ){
+				pMaxScorePlayer = pPlayer;
+			}
+			else{
+				if( nCurPlayerScore > pMaxScorePlayer.CalculatePlayerScore() ){
+					pMaxScorePlayer = pPlayer;
+				}
+			}			
+		}
+		println("最后的冠军是" + g_strCharacter[pMaxScorePlayer.m_nCurrentCharacter - 1] + " 总共得到了 <" + pMaxScorePlayer.CalculatePlayerScore() + ">分数");
+	}
+	void RoundExecute(){
+		while (m_itChosenCharacter.hasNext()) {
+			Map.Entry me = (Map.Entry)m_itChosenCharacter.next();
+			CPlayer pPlayer = (CPlayer)me.getValue();
+			//println(pPlayer.m_nCurrentCharacter);
+			if( pPlayer.m_nStatus == pPlayer.m_nStatusDie ){
+				//do nothing.
+				println(g_strCharacter[pPlayer.m_nCurrentCharacter-1] + "已经死亡，本轮轮空.");
+			}
+			else{
+				if( pPlayer.m_nStatus == pPlayer.m_nStatusMoneyStolen ) {
+					println(g_strCharacter[pPlayer.m_nCurrentCharacter-1] + "被偷窃，金币交给小偷.");
+					pPlayer.SubMoney(pPlayer.m_nMoney);
+					g_pThief.AddMoney(pPlayer.m_nMoney);
+				}
+				if( pPlayer.m_bPlayer ){
+					println("请执行本轮行动");
+					ShowLocalWndBase(true,true,false);
+					break;
+				}
+				NpcAIAction( pPlayer );
+			}
+			//println(me.getKey() + " is " + " " + ((CPlayer)me.getValue()).m_nCurrentCharacter);
+		}
+	}
+	void RoundStart() {
+		
+		ShowLocalWndBase(false,false,false);
+		
+		m_pChosenCharacter.clear();
+		m_hashChosenCharacter.clear();
+		g_pThief		= null;
+		m_pKing			= null;
+		PlayerRoundInit();
+		SetKing();
+		AssignCharacter();
+		NpcChooseCharacter( m_pKing );
+		println("剩余 " + m_pRoundAssignCharacter.size() + " 个角色供您选择");
+		m_pPlayerChooseBase.showWindow(true);
+		PlayerChooseCharacter();
+	}
+	//玩家可选择角色菜单.
+	void PlayerChooseCharacter() {
+		int lengthRestCharacter = m_pRoundAssignCharacter.size();
+		for( int idxCharacter = 0; idxCharacter < lengthRestCharacter; idxCharacter++ ){
+			int nCharacter				= (int)m_pRoundAssignCharacter.get(idxCharacter);
+			CWndButton pBtnCharacter 	= (CWndButton)m_pPlayerChooseCharacter.get(idxCharacter);
+			pBtnCharacter.showWindow(true);
+			pBtnCharacter.MoveWindow(idxCharacter * g_nPlayerChoseSpan,0);
+			pBtnCharacter.SetDlgID(m_nChooseBtnStart + idxCharacter );
+			String strRes 		= "Citadels/" + nCharacter + ".png";
+			pBtnCharacter.SetDataFile(strRes,1,1);
+			pBtnCharacter.SetDrawRate(g_fRateShowPlayer);
+			pBtnCharacter.m_pPic.changeFrame();
+		}
+	}
+	//返回人类玩家的索引值
+	void NpcChooseCharacter( CPlayer pCurrentPlayer ){
+		boolean bStartChoose = false;
+		//从国王开始选择角色。轮到人类玩家后停止。
+		while( true ){
+			if( !pCurrentPlayer.m_bPlayer && !pCurrentPlayer.isCharacterAssign()){
+				int szCharacter = m_pRoundAssignCharacter.size();
+				if( szCharacter > 0 ){
+					int nIndex = (int)random(0,szCharacter) ;
+					int nRemoveCharacter = (int) m_pRoundAssignCharacter.remove( nIndex );
+					pCurrentPlayer.SetCharacter( nRemoveCharacter );
+					m_hashChosenCharacter.put("" + nRemoveCharacter,pCurrentPlayer);
+					println(g_strCharacter[pCurrentPlayer.m_nCurrentCharacter-1] + "选择完毕.");
+					pCurrentPlayer = pCurrentPlayer.m_pNextPlayer;
+					//m_pChosenCharacter.add(nRemoveCharacter);
+				}
+				else{
+					break;
+				}
+			}
+			else{
+				break;
+			}
+		}
+	}
+	void RandBuilding() {
+		g_pBuildingRest.clear();
+		for( int idxBuilding = 0; idxBuilding < m_pBuildingBack.size(); idxBuilding++ ){
+			g_pBuildingRest.add(m_pBuildingBack.get(idxBuilding));
+		}
+		randObjectExecute(null,g_pBuildingRest);
+	}
+	void AssignCharacter() {
+		m_pRoundAssignCharacter.clear();
+		if( g_nMaxPlayerCounts == 6 ) {
+			randObjectExecute(null,m_pCharacter);
+			int nCountCharacter = 0;
+			for ( int idxCharacter = 0; idxCharacter < m_pCharacter.size(); idxCharacter++ ) {
+				if( nCountCharacter < g_nMaxPlayerCounts + 1 ){
+					m_pRoundAssignCharacter.add(m_pCharacter.get(idxCharacter));
+				}
+			}
+		}
+		else {
+			println("其他玩家数目还没有实现");
+		}
+		for( int idxCharacterBtn = 0; idxCharacterBtn < m_pPlayerChooseCharacter.size(); idxCharacterBtn++) {
+			CWndButton pBtnCharacter = (CWndButton)m_pPlayerChooseCharacter.get(idxCharacterBtn);
+			pBtnCharacter.showWindow(false);
+		}
+	}
+	void PlayerRoundInit() {
+		for ( int idxPlayer = 0; idxPlayer < m_pPlayers.size(); idxPlayer++ ) {
+			CWndBase pPlayer 	= (CWndBase) m_pPlayers.get( idxPlayer );
+			pPlayer.RoundInit();
+		}
+	}
+	void SetKing() {
+		if( m_bNewGame ) {
+			//随机国王.
+			noiseSeed(0);
+			int nIndex = 			(int)random(0,m_pPlayers.size()) ;
+			m_pKing 				= (CPlayer) m_pPlayers.get( nIndex );
+			m_pKing.SetKing();
+			m_bNewGame = false;
+		}
+		else {
+			if( CPlayer.s_pNextKing == null ) {
+				println("alert");
+			}
+			else {
+				CPlayer.s_pNextKing.SetKing();
+				m_pKing = CPlayer.s_pNextKing;
+			}
+		}
+	}
+	boolean Create( int posx, int posy, int cx, int cy, CWndBase pWnd, int nID ) {
+		boolean bRes = super.Create( posx, posy, cx, cy, pWnd, nID );
+		try{
+			GameInit();
+		}
+		catch ( e ) {
+			println(e);
+		}
+		return bRes;
+	}
+	void onDraw(){
+		super.onDraw();
+	}
+	void OnUpdate( long nOffset ) {
+		try{
+		}
+		catch(e){
+			println(e);
+		}
+		
+	}
+	int OnLButtonUp(int nFlags,CPoint point){
+		return WND_RESULT_NO;
+	}
+	
+	int OnMouseMove(int nFlags,CPoint point){
+		g_pMouseCursor.MoveWindow(point.x ,point.y);
+		
+		return WND_RESULT_NO;
+	}
+	//起始给玩家发建筑牌
+	void GivePlayerBuilding() {
+		int nLengthPlayers 		= m_pPlayers.size();
+		for ( int idxPlayer = 0; idxPlayer < nLengthPlayers; idxPlayer++ ) {
+			CPlayer pPlayer = (CPlayer)m_pPlayers.get(idxPlayer);
+			for( int idxBuilding = 0; idxBuilding < g_nInitBuildingCount; idxBuilding++ ){
+				if( g_pBuildingRest.size() > 0 ){
+					CBuilding pBuilding = (CBuilding)g_pBuildingRest.remove(0);
+					pPlayer.GiveBuilding( pBuilding );
+				}
+			}
+		}
+	}
+	voir ShowLocalWndBase( boolean bGetCoin, boolean bGetBuilding, boolean bRoundStart ) {
+		m_pBtnPlayerGetCoin.showWindow(bGetCoin);
+		m_pBtnPlayerGetBuilding.showWindow(bGetBuilding);
+		m_pBtnRoundStart.showWindow(bRoundStart);
+	}
+	int OnMessage( int nUIEvent, int nID ) {
+		int nRes = WND_RESULT_NO;
+		if( WND_EVENT_CLICK == nUIEvent ) {
+			if( nID == m_nBtnNewGame ){
+				m_bNewGame			 = true;
+				g_pPlayerFirstBuild  = null;
+				PlayerGameInit();
+				RandBuilding();
+				GivePlayerBuilding();
+				RoundStart();
+			}
+			else if( nID == m_nBtnPlayerGetCoin ) {
+				CAction pAction = (CAction)g_mapCommonAction.get("" + g_nCommonActionCoin);
+				pAction.doAction(m_pPlayer,g_nCharacterNone,null,0,null);
+				ShowLocalWndBase(false,false,false);
+				RoundExecute();
+				RoundOver();
+			}
+			else if( nID == m_nBtnPlayerGetBuilding ) {
+				CAction pAction = (CAction)g_mapCommonAction.get("" + g_nCommonActionGainBuilding);
+				pAction.doAction(m_pPlayer,g_nCharacterNone,null,0,null);
+				ShowLocalWndBase(false,false,false);
+				RoundExecute();
+				RoundOver();
+			}
+			else if( nID == m_nBtnRoundStart ) {
+				ShowLocalWndBase(false,false,false);
+				RoundStart();
+			}
+			else if( nID >= m_nChooseBtnStart && nID <= m_nChooseBtnStart + g_nMaxCharacterCount){
+				m_pPlayerChooseBase.showWindow(false);
+				int nRemoveCharacter = m_pRoundAssignCharacter.remove(nID-m_nChooseBtnStart);
+				println("您选择了 " + g_strCharacter[nRemoveCharacter-1] + " " + nRemoveCharacter);
+				m_pPlayer.SetCharacter( nRemoveCharacter );
+				m_hashChosenCharacter.put("" + nRemoveCharacter,m_pPlayer);
+				NpcChooseCharacter(m_pPlayer.m_pNextPlayer);
+				println("所有玩家角色选择完毕.游戏开始!");				
+				
+				
+				m_itChosenCharacter = m_hashChosenCharacter.entrySet().iterator();
+				RoundExecute();
+			}
+		}
+		return nRes;
+	}
+	
+	int OnRButtonUp(int nFlags,CPoint point){
+		return WND_RESULT_YES;
+	}
+}
+
+
+</script><canvas width="200" height="200" cursor= "none"></canvas></p>
+<div style="height:0px;width:0px;overflow:hidden;"><img src='data/sky.jpg' id='sky.jpg'/><img src='data/teddy.gif' id='teddy.gif'/></div>
+</body>
+</html>

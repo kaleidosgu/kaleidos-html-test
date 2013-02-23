@@ -1,0 +1,1228 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+  <script src="processing.js"></script>
+  <script src="sound.js"></script>
+<link rel="stylesheet" href="style.css"/></head>
+<body><h1>Kag Editor</a></h1>
+<p>by kaleidos. 鼠标左右键操作方向，上键跳跃。右面的地图资源可以填在空白格子中。写了一些基本的判定。</p>
+<p>但是processing-js有个问题不知道该怎么解决，就是如果一直按着一个键，keypress可以捕获到，但是再按另外一个键，先前那个键不松手也不再捕获了。</a></p>
+<p>如果知道这个问题的请告知我，非常感谢 mail :gjcaoyoi@163.com</p>
+<p><a href="kag2d.com/"><b>Kag</b> </a></p>
+<audio id="clickSound">
+	<source src="she_sailed_away.mp3">
+</audio>
+<script type="application/processing">
+/* @pjs preload="tt_pic/floor/floor001.png";  
+		preload="tt_pic/foot.png"; 
+		preload="tt_pic/foot2.png"; 
+		preload="kag/knightMale.png"; 
+		preload="kag/flag2.png"; 
+		preload="kag/world.png"; 
+		preload="kag/arrow_cursor.png"; 
+		preload="kag/SimpleStone.png"; 
+		
+*/
+int WND_RESULT_NO = 0;
+int WND_RESULT_YES = 1;
+int WND_EVENT_CLICK = 0;
+PFont fontA = 0;
+CWndDesktop g_pDesk ;
+int INPUT_KEYDOWN = 1;
+int INPUT_KEYUP = 2;
+CWndBase 	s_pWndLBDown = null;
+boolean 	m_bLPressed	  	= false;
+boolean		m_bLReleased  	= false;
+boolean		m_bRPressed  	= false;
+boolean		m_bRReleased  	= false;
+CWndBase	g_pFloor		= null;
+CPoint m_ptMouse			= new CPoint(0,0);
+int g_nWidth = 60;
+long 		g_nLastTime = 0;
+long		g_nFloorHeight = 0;
+int			g_ScreenWidth = 1024;
+int			g_ScreenHeight = 700;
+CWndTga		g_pKag = null;
+CWndTga		g_pMouseCursor = null;
+int			g_nResIDStart = 100;
+int			g_nResCnt		= 256;
+float		g_fCommonRate 	= 2;
+CWndBase 	g_pGuiBase		= null;
+CMainInput 	g_pInput		= null;
+CMapShow	g_pMapShow		= null;
+CWndBase	g_pMapBase		= null;
+CWndTga		g_pPlayer		= null;
+int			g_nPlayerConstSpeed	= 2;
+int			g_nPlayerSpeed		= g_nPlayerConstSpeed;
+int			g_nPlayerDir 	= CWndBase.m_nDirDown;
+int			g_nPlayerGravity 	= 1;
+int			g_nIntersectNone	= 0;
+int			g_nIntersectHori	= 1;
+int			g_nIntersectVertTop		= 2;
+int			g_nIntersectVertBottom	= 3;
+
+int			g_nPlayerIdle		= 0;
+int			g_nPlayerJump		= 1;
+int			g_nPlayerFall		= 2;
+
+int			g_nPlayerState		= g_nPlayerFall;
+int			g_nMaxJumpHight		= 140;
+int			g_nCurJumpHight		= 0;
+
+long		g_lMovementTimeCnt	= 15;
+void setup() 
+{
+	//psound( "clickSound");
+	size(g_ScreenWidth,g_ScreenHeight);
+	
+	g_pDesk = new CWndDesktop();
+	g_pDesk.ResizeWindow(1,1);
+	var tempDate = new Date()
+	g_nLastTime = tempDate.getTime();
+	try
+	{
+		println(tt.top);
+		fontA = loadFont("Courier New");
+		
+		
+		g_pFloor = new CWndBase();
+		g_pFloor.Create( 190,0,0,0, g_pDesk,0);
+		
+		
+		g_pKag = new CWndTga("kag/world.png",16,16);
+		g_pKag.Create( 0,0,0,0, g_pFloor,1);
+		g_pKag.SetDrawRate(2);
+		g_pKag.setFrame(10);
+		
+		
+		g_pInput = new CMainInput();
+		g_pInput.Create( 740,0,100,100,g_pDesk,0 );
+		g_pInput.m_bShowBox = true;
+		
+		g_pMapShow	= new CMapShow();
+		g_pMapShow.Create(0,200,0,0,g_pDesk,0);
+		
+		g_pGuiBase = new CWndBase();
+		g_pGuiBase.Create( 0,0,0,0, g_pInput,0);
+		CWndTga	 	pGuiBg = new CWndTga("kag/SimpleStone.png",1,1);
+		pGuiBg.Create( 0,0,0,0, g_pGuiBase,1);
+		pGuiBg.SetDrawRate(g_fCommonRate);
+		
+		CWndTga	 	pGuiReBg = new CWndTga("kag/world.png",1,1);
+		pGuiReBg.Create( 0,0,0,0, g_pGuiBase,1);
+		pGuiReBg.SetDrawRate(g_fCommonRate);
+				
+		g_pMouseCursor = new CWndTga("kag/arrow_cursor.png",1,1);
+		g_pMouseCursor.Create( 0,0,0,0, g_pDesk,1);
+		g_pMouseCursor.SetDrawRate(g_fCommonRate);
+		g_pMouseCursor.setFrame(49);
+		g_pMouseCursor.SetMirror(false);
+		g_pMouseCursor.changeFrame();
+		
+		g_pPlayer		= new CWndTga("kag/knightMale.png",8,4);
+		g_pPlayer.Create( 0,0,0,0, g_pDesk,1);
+		g_pPlayer.SetDrawRate(g_fCommonRate);
+		g_pPlayer.SetMirror(false);
+		g_pPlayer.changeFrame();
+		g_pPlayer.m_bShowBox = true;
+	}
+	catch(e)
+	{
+		println(e);
+	}
+	frameRate(60);  
+}
+class CRect{
+	int			left		= 0;
+	int			top			= 0;
+	int			right		= 0;
+	int			bottom		= 0;
+	CRect( int posx, int posy, int cx, int cy ) {
+		this.left 	= posx;
+		this.top 	= posy;
+		this.right 	= posx + cx;
+		this.bottom = posy + cy;
+	}
+	CRect( const CRect& rc1 ) {
+		this.left 	= rc1.left;
+		this.top 	= rc1.top;
+		this.right 	= rc1.right;
+		this.bottom = rc1.bottom;
+	}
+}
+void copyRect( CRect rcDst, CRect rcSrc )
+{
+	rcDst.left 		= rcSrc.left;
+	rcDst.right 	= rcSrc.right;
+	rcDst.top 		= rcSrc.top;
+	rcDst.bottom 	= rcSrc.bottom;
+}
+void offsetRect ( CRect rc, int dx, int dy ) 
+{
+	rc.left 	= rc.left 	+ dx;
+	rc.right 	= rc.right 	+ dx;
+	rc.top 		= rc.top 	+ dy;
+	rc.bottom 	= rc.bottom + dy;
+}
+void SetRectEmpty( CRect rc )
+{
+	rc.left 	= 0;
+	rc.right 	= 0;
+	rc.top 		= 0;
+	rc.bottom 	= 0;
+}
+void SetRect( CRect rc, int posx, int posy, int cx, int cy )
+{
+	rc.left 	= posx;
+	rc.right 	= posx + cx;
+	rc.top 		= posy;
+	rc.bottom 	= posy + cy;
+}
+boolean PtInRect( CRect rc, CPoint pt ) {
+	if ( pt.x >= rc.left && pt.x < rc.right && pt.y >= rc.top && pt.y < rc.bottom )
+	{
+		return true;
+	}
+	return false;
+}
+void mouseMoved() {
+	if ( mousePressed == false )
+	{
+		//println("not press");
+	}
+	else
+	{
+		//println(mouseButton);
+	}
+}
+void mousePressed() {
+  if (mouseButton == LEFT) {
+	m_bLPressed	  	= true;
+	m_bLReleased  	= false;
+    //println("left pressed");
+  } else if (mouseButton == RIGHT) {
+    //println("right pressed");
+	m_bRPressed  	= true;
+	m_bRReleased  	= false;
+  } else {
+    //println("other pressed");
+  }
+}
+void mouseReleased() {
+  if(mouseButton == LEFT) {
+    //println("left release");
+	m_bLPressed	  	= false;
+	m_bLReleased  	= true;
+  } else if (mouseButton == RIGHT) {
+    //println("right release");
+	m_bRPressed  	= false
+	m_bRReleased    = true;
+  }
+}
+
+void draw() 
+{ 
+	background(58,188,117);
+	try
+	{
+		//fill( 150,110,150,200);
+		//rect(300, 385, 50, 30);
+		//println("x " + m_ptMouse.x + " y " + m_ptMouse.y);
+		g_pDesk.onDraw();
+		var tempDate = new Date();
+		long nTempOffset = tempDate.getTime() - g_nLastTime;
+		g_nLastTime = tempDate.getTime();
+		g_pDesk.OnUpdate(nTempOffset);
+		m_ptMouse.x = mouseX;
+		m_ptMouse.y = mouseY;
+		g_pDesk.OnMouseInput();
+		//println(" press " + mousePressed );
+		if( m_bLReleased == true ) {
+			if ((mouseButton == LEFT)) {
+				m_bLReleased = false;
+			}
+		}
+	}
+	catch(e)
+	{
+		println(e);
+	}
+}
+void keyReleased() {
+	println("release " + int(key) + " " + keyCode);
+}
+void keyPressed() {
+	println("pressed " + int(key) + " " + keyCode);
+}
+int intersect( CRect r1, CRect r2, boolean bDirUp ){ 
+	try {
+		CRect rcTmp = new CRect(0,0,0,0);
+		rcTmp.left = max(r1.left, r2.left);
+		rcTmp.right = min(r1.right, r2.right);
+		rcTmp.top = max(r1.top, r2.top);
+		rcTmp.bottom = min(r1.bottom, r2.bottom);
+		if( rcTmp.left > rcTmp.right || rcTmp.top > rcTmp.bottom )
+		{
+			return g_nIntersectNone;
+		}
+		else
+		{
+			if( bDirUp ) {
+				if( rcTmp.top <= rcTmp.bottom ) {
+					if( r1.top <= r2.top ){
+						return g_nIntersectVertTop;
+					}
+					else{
+						return g_nIntersectVertBottom;
+					}
+				}
+				else {
+					return g_nIntersectHori;
+				}
+			}
+			else{
+				if( rcTmp.left <= rcTmp.right ) {
+					return g_nIntersectHori;
+				}
+				else {
+					if( r1.top <= r2.top ){
+						return g_nIntersectVertTop;
+					}
+					else{
+						return g_nIntersectVertBottom;
+					}
+				}
+			}
+		}
+	}
+	catch ( e ) {
+	}
+
+}
+class CWndBase{
+	ArrayList	arrayChild 	= 0;
+	CWndBase	m_pParent	= 0;
+	boolean		m_bShowBox 	= false;
+	boolean 	m_bVisible  = true;
+	boolean 	m_bDragWithParent = true;
+	boolean		m_bNeedMouseInput	= true;
+	static int	m_nDirRight		= 1;
+	static int	m_nDirLeft		= 2;
+	static int	m_nDirUp		= 3;
+	static int	m_nDirDown		= 4;
+	CRect		m_rcRect;
+	CRect		m_rcAbsWnd;
+	
+	int			m_nDlgID	= 0;
+	
+	CWndBase() {
+		this.m_rcRect = new CRect(0,0,0,0);
+		this.m_rcAbsWnd = new CRect(0,0,0,0);
+		SetRectEmpty(this.m_rcRect);
+		
+		this.arrayChild		= new ArrayList();
+	}
+	void showWindow( boolean bShow ) {
+		m_bVisible = bShow;
+	}
+	void OnUpdate( long nOffset ) {
+		for ( int idx = 0; idx < arrayChild.size(); idx++ ) {
+			CWndBase pWnd = (CWndBase) this.arrayChild.get( idx );
+			pWnd.OnUpdate( nOffset);
+		}
+	}
+	int OnKeyDown ( int keyType, int keyValue ) {
+		int nRes = WND_RESULT_NO;
+		//println("typeddown " + int(key) + " " + keyCode);
+		return nRes;
+	}
+	int OnKeyUp ( int keyType, int keyValue ) {
+		int nRes = WND_RESULT_NO;
+		//println("typedup " + int(key) + " " + keyCode);
+		return nRes;
+	}
+	int OnChar ( int keyType, int keyValue ) {
+		int nRes = WND_RESULT_NO;
+		//println("onchar " + int(key) + " " + keyCode);
+		return nRes;
+	}
+	
+	int SendMessage( int nUIEvent, int nID ) {
+		return OnMessage( nUIEvent, nID );
+	}
+	int OnMessage( int nUIEvent, int nID ) {
+		int nResult = WND_RESULT_NO;
+		if ( m_pParent )
+		{
+			nResult = m_pParent.OnMessage( nUIEvent, nID );
+		}
+		else
+		{
+
+		}
+		return nResult;
+	}
+	int SendMessageToParent( int nUIEvent, const int& nID ){
+		int nRes = WND_RESULT_NO;
+		if( m_pParent )
+		{
+			nRes = m_pParent.SendMessage( nUIEvent, nID );
+		}
+		return nRes;
+	}
+	int ProcessKeyboardMessage( int keyPress, int keyType, int keyValue ) {
+		
+		int nRes = WND_RESULT_NO;
+		if (keyType != CODED && keyPress == INPUT_KEYDOWN ) {
+			nRes = OnChar( keyType, keyValue );
+			//println("onchar");
+		}
+		if( nRes == WND_RESULT_NO )
+		{
+			if( keyPress == INPUT_KEYDOWN  )
+			{
+				nRes = OnKeyDown( keyType, keyValue );
+			}
+			else if( keyPress == INPUT_KEYUP  )
+			{
+				nRes = OnKeyUp( keyType, keyValue );
+			}
+		}
+
+		return nRes;
+	}
+	int OnKeyboardMessage( int keyPress, int keyType, int keyValue ) {
+		int nRes = WND_RESULT_NO;
+		if(!IsVisible() || !IsWindowEnabled())
+			return nRes;
+
+		for (int idx = arrayChild.size()-1; idx >= 0; idx--) {
+			CWndBase pWnd = (CWndBase) this.arrayChild.get( idx );
+			if ( pWnd )
+			{
+				nRes = pWnd.OnKeyboardMessage( keyPress, keyType, keyValue );
+			}
+		}	
+		if( nRes == WND_RESULT_NO )
+		{
+			nRes = ProcessKeyboardMessage( keyPress, keyType, keyValue );
+		}
+
+		return nRes;
+	}
+	boolean Create( int posx, int posy, int cx, int cy, CWndBase pWnd, int nID ) {
+		SetRect( this.m_rcRect,posx,posy,cx, cy);
+		//println(m_rcRect.left + " " + m_rcRect.right + " " + m_rcRect.top + " " + m_rcRect.bottom);
+		SetDlgID( nID );
+		SetParent( pWnd );
+		return true;
+	}
+	void SetDlgID( int nID ) {
+		m_nDlgID = nID;
+	}
+	void SetWindowTop() {
+		for ( int idx = 0; idx < this.m_pParent.arrayChild.size(); idx++ ) {
+			CBase pWnd = (CBase)this.m_pParent.arrayChild.get(idx);
+			if ( this == pWnd )
+			{
+				CBase pRemoveWnd = this.m_pParent.arrayChild.remove(idx);
+				this.m_pParent.arrayChild.add( pRemoveWnd );
+				break;
+			}
+		}
+	}
+	void MoveDirect( int nDir, int nValue ) {
+		if( nDir == m_nDirRight ) {
+			MoveWindow( this.m_rcRect.left + nValue, this.m_rcRect.top );
+		}
+		else if( nDir == m_nDirLeft ) {
+			MoveWindow( this.m_rcRect.left - nValue, this.m_rcRect.top );
+		}
+		else if( nDir == m_nDirUp ) {
+			MoveWindow( this.m_rcRect.left , this.m_rcRect.top - nValue );
+		}
+		else if( nDir == m_nDirDown ) {
+			MoveWindow( this.m_rcRect.left , this.m_rcRect.top + nValue );
+		}
+	}
+	void MoveWindow( int posx, int posy ) {
+		this.m_rcRect.right 	+= ( posx - this.m_rcRect.left );
+		this.m_rcRect.left 		= posx;
+		this.m_rcRect.bottom 	+= ( posy - this.m_rcRect.top);
+		this.m_rcRect.top 		= posy;
+		this.CheckAbsWnd();
+	}
+	void ResizeWindow( int cx, int cy ) {
+		this.m_rcRect.right 	= this.m_rcRect.left + cx;
+		this.m_rcRect.bottom 	= this.m_rcRect.top + cy;
+		this.CheckAbsWnd();
+	}
+	void removeChild( CWndBase pChild ) {
+		for (int idx = arrayChild.size()-1; idx >= 0; idx--) {
+			CWndBase pWnd = (CWndBase) this.arrayChild.get( idx );
+			if ( pWnd == pChild )
+			{
+				this.arrayChild.remove( idx );
+				break;
+			}
+		}
+	}
+	void drawBox()
+	{
+		if( this.m_bVisible && this.m_bShowBox ) {
+			line(m_rcAbsWnd.left, m_rcAbsWnd.top, m_rcAbsWnd.right, m_rcAbsWnd.top);			
+			line(m_rcAbsWnd.left, m_rcAbsWnd.bottom , m_rcAbsWnd.right, m_rcAbsWnd.bottom );
+			line(m_rcAbsWnd.left, m_rcAbsWnd.top, m_rcAbsWnd.left, m_rcAbsWnd.bottom );
+			line(m_rcAbsWnd.right, m_rcAbsWnd.top, m_rcAbsWnd.right, m_rcAbsWnd.bottom );
+			stroke(255,255,128);
+			
+			//println(m_rcAbsWnd.left + " " + m_rcAbsWnd.right + " " + m_rcAbsWnd.top + " " + m_rcAbsWnd.bottom);
+		}
+	}
+	void GetWindowRect( CRect rc )
+	{
+		copyRect( rc, this.m_rcAbsWnd);
+	}
+	void onDraw()
+	{
+		if( m_bVisible ) {
+			for ( int idx = 0; idx < arrayChild.size(); idx++ ) {
+				CWndBase pWnd = (CWndBase) this.arrayChild.get( idx );
+				pWnd.onDraw();
+				pWnd.drawBox();
+			}
+		}
+	}
+	void CheckAbsWnd()
+	{
+		copyRect( this.m_rcAbsWnd, this.m_rcRect );
+		//println(m_rcRect.left + " " + m_rcRect.right + " " + m_rcRect.top + " " + m_rcRect.bottom);
+		if( this.m_bDragWithParent )
+		{
+			if( this.m_pParent )
+			{
+				offsetRect( m_rcAbsWnd, m_pParent.m_rcAbsWnd.left, m_pParent.m_rcAbsWnd.top);
+			}
+			for ( int idx = 0; idx < arrayChild.size(); idx++ ) {
+				CWndBase pWnd = (CWndBase) this.arrayChild.get( idx );
+				if ( pWnd != 0 && pWnd.m_bDragWithParent == true)
+				{
+					pWnd.CheckAbsWnd();
+				}
+			}
+		}
+	}
+	void SetParent( CWndBase pWnd )
+	{
+		if ( this.m_pParent != 0 )
+		{
+			this.m_pParent.removeChild(this);
+		}
+		this.m_pParent = pWnd;
+		if ( this.m_pParent != 0 )
+		{
+			pWnd.arrayChild.add(this);
+			//println(this.m_nDlgID);
+			this.CheckAbsWnd();
+		}
+	}
+	boolean IsVisible()
+	{
+		return m_bVisible;
+	}
+	boolean IsWindowEnabled()
+	{
+		return true;
+	}
+	boolean NeedMouseInput() {
+		return m_bNeedMouseInput;
+	}
+	
+	CPoint GetClientPos() {
+		CPoint pt = new CPoint(0,0);
+		pt.x = m_rcRect.left;
+		pt.y = m_rcRect.top;
+		return pt;
+	}
+
+	boolean PtInWnd( CPoint pt ) 
+	{
+		for ( int idx = 0; idx < arrayChild.size(); idx++ ) {
+			CWndBase pWnd = (CWndBase) this.arrayChild.get( idx );
+			if(pWnd.IsVisible() && pWnd.PtInWnd(pt)){
+				return true;
+			}
+		}
+		
+		RECT rcWnd = new CRect(0,0,0,0);
+		this.GetWindowRect(rcWnd);
+		
+		if ( PtInRect(rcWnd, pt))
+		{
+			rcWnd = 0;
+			return true;
+		}
+		
+		rcWnd = 0;
+		return false;
+	}
+	CWndBase GetChildWndPtIn( CPoint pt )
+	{
+		CWndBase pWnd = 0;
+
+		for (int idx = this.arrayChild.size()-1; idx >= 0; idx--) {
+			CWndBase pWnd = (CWndBase) this.arrayChild.get( idx );
+			if( pWnd.IsVisible() && pWnd.NeedMouseInput() && pWnd.PtInWnd(pt) ) return pWnd;
+		}
+		
+		return null;
+	}
+	int OnMouseInput( )
+	{
+		if(!IsVisible())
+			return 0;
+
+		int lRes = 0;
+
+		CWndBase pWnd = GetChildWndPtIn(m_ptMouse);
+		if(!pWnd) 
+		{
+			m_pWndCursorIn = this;
+		}
+
+		if(!IsWindowEnabled())
+		{
+			return 1;
+		}
+
+		if( pWnd )
+		{
+			lRes = pWnd.OnMouseInput();
+		}
+
+		if(lRes == 0)
+		{
+			lRes = ProcessMouseInput();
+		}
+
+		return lRes;
+	}
+	int ProcessMouseInput( )
+	{
+		int lRes = WND_RESULT_NO;
+		
+		try {
+			int nFlags = 0;
+			if(m_bLPressed)
+			{
+				lRes = OnLButtonDown(nFlags,m_ptMouse);
+				s_pWndLBDown = this;
+				//println("down down " + s_pWndLBDown.m_nDlgID);
+				//println("down this " + this.m_nDlgID);
+			}
+			if(m_bLReleased)
+			{
+				lRes = OnLButtonUp(nFlags,m_ptMouse);
+				//println("release down " + s_pWndLBDown.m_nDlgID);
+				//println("release this " + this.m_nDlgID);
+				if(s_pWndLBDown == this) {
+					OnLButtonClick(nFlags, m_ptMouse);
+				}
+				else {
+					//println(s_pWndLBDown.m_nDlgID + " " + this.m_nDlgID);
+				}
+				if ( lRes == WND_RESULT_YES )
+				{
+					m_bLReleased = false
+				}
+			}
+			if(m_bRPressed)
+			{
+				lRes = OnRButtonDown(nFlags, m_ptMouse);
+			}
+			if(m_bRReleased)
+			{
+				lRes = OnRButtonUp(nFlags,m_ptMouse);
+				if ( lRes == WND_RESULT_YES )
+				{
+					m_bRReleased = false
+				}
+			}
+			if ( lRes == WND_RESULT_NO )
+			{
+				lRes = OnMouseMove(nFlags, m_ptMouse);
+			}
+		}
+		catch ( e ) {
+			println(e );
+		}
+		
+		return lRes;
+	}
+	int OnRButtonDown(int nFlags,CPoint point) {
+		return WND_RESULT_NO;
+	}
+	int OnRButtonUp(int nFlags,CPoint point){
+		return WND_RESULT_NO;
+	}
+	int OnLButtonDown(int nFlags,CPoint point){
+		return WND_RESULT_NO;
+	}
+	int OnLButtonUp(int nFlags,CPoint point){
+		return WND_RESULT_NO;
+	}
+	int OnLButtonClick(int nFlags, CPoint point){
+		return WND_RESULT_NO;
+	}
+	int OnMouseMove(int nFlags,CPoint point){
+		return WND_RESULT_NO;
+	}
+	int OnMouseMoveIn(int nFlags,CPoint point){
+		return WND_RESULT_NO;
+	}
+	int OnMouseMoveOut(int nFlags,CPoint point){
+		return WND_RESULT_NO;
+	}
+}
+class CPoint {
+	int			x = 0;
+	int			y = 0;
+	CPoint( int x, int y )
+	{
+		this.x = x;
+		this.y = y;
+	}
+}
+class CWndDesktop extends CWndBase {
+	CWndDesktop() {
+		super();
+	}
+	int OnChar ( int keyType, int keyValue ) {
+			int nRes = WND_RESULT_NO;
+			//println("wnd onchar " + int(key) + " " + keyCode);
+			//super.OnChar( keyType, keyValue );
+			return nRes;
+		}
+		
+	int OnMouseMove(int nFlags,CPoint point){
+		g_pMouseCursor.MoveWindow(point.x,point.y);
+		return WND_RESULT_NO;
+	}
+}
+class CWndButton extends CWndBase {
+	CWndTga m_pPic = null;
+	CWndButton() {
+		super();
+	}
+	boolean Create( int posx, int posy, int cx, int cy, CWndBase pWnd, int nID ) {
+		boolean bRes = super.Create( posx, posy, cx, cy, pWnd, nID );
+		m_pPic = new CWndTga("",0,0);
+		m_pPic.Create( 0,0,0,0, this,1);
+		return bRes;
+	}
+	void SetDataFile( String res, int col, int row ){
+		if ( m_pPic != null ) {
+			m_pPic.SetDataFile( res, col, row );
+		}
+	}
+	void setFrame( int nFrame ) {
+		if ( m_pPic != null ) {
+			m_pPic.setFrame( nFrame );
+		}
+	}
+	void SetDrawRate( float fRate ) {
+		if ( m_pPic != null ) {
+			m_pPic.SetDrawRate( fRate );
+			ResizeWindow(m_pPic.m_nDrawWidth,m_pPic.m_nDrawHeight);
+		}
+	}
+	int OnLButtonClick(int nFlags, CPoint point){
+		onClick();
+		return WND_RESULT_YES;
+	}
+	void onClick() {
+		//println("click = " + m_nDlgID);
+		SendMessageToParent(WND_EVENT_CLICK,m_nDlgID);
+	}
+	int OnLButtonDown(int nFlags,CPoint point){	
+		//println("OnLButtonDown = " + m_nDlgID);
+		return WND_RESULT_YES;
+	}
+	int OnLButtonUp(int nFlags,CPoint point){
+		//println("OnLButtonUp = " + m_nDlgID);
+		return WND_RESULT_YES;
+	}
+}
+class CWndTga extends CWndBase {
+	PImage 	pImgFlip;
+	PImage 	pImgDraw = 0;
+	PImage 	pImgSrc;
+	boolean m_bPlaying = false;
+	int		m_nFrameWidth = 0;
+	int		m_nFrameHeight = 0;
+	boolean m_bMirror = false;
+	int 	m_nCurFrame = 0;
+	int		m_nFrameCol	= 0;
+	int		m_nFrameRow	= 0;
+	int		m_nMaxFrame	= 0;
+	color	m_nColorKey = color(0,0,0,0);
+	
+	int		m_nDrawWidth 	= 0;
+	int		m_nDrawHeight 	= 0;
+	
+	float	m_fRate		= 1.0;
+	boolean	m_bColorKey	= false;
+	long	m_lTickCount	= 0;
+	//constructor
+	CWndTga(String strRes, int col, int row ) 
+	{
+		try
+		{
+			super();
+			
+			m_bNeedMouseInput	= false;
+			SetDataFile( strRes, col, row ) ;
+		}
+		catch(e)
+		{
+			println(e);
+		}
+	}
+	void SetDataFile( String strRes, int col, int row ) {
+		try
+		{
+			this.m_nFrameCol 	= col;
+			this.m_nFrameRow	= row;
+			this.pImgSrc = loadImage(strRes);
+			this.m_nFrameWidth 	= this.pImgSrc.width / col;
+			this.m_nMaxFrame = col * row;
+			this.m_nFrameHeight = this.pImgSrc.height / row;
+			
+			m_nDrawWidth = this.m_nFrameWidth;
+			m_nDrawHeight = this.m_nFrameHeight;
+			this.pImgFlip = createImage(this.pImgSrc.width, this.pImgSrc.height, ARGB);
+			this.flipImg();
+			changeFrame();
+		}
+		catch(e)
+		{
+			println(e);
+		}
+	}
+	void OnUpdate( long nOffset ) {
+		super.OnUpdate( nOffset );
+		if( m_bPlaying ) {
+			long m_lTime = 100;
+			m_lTickCount += nOffset;
+			if( m_lTickCount >= m_lTime ) {
+				m_lTickCount -= m_lTime;
+				addFrame();
+			}
+		}
+	}
+	boolean Create( int posx, int posy, int cx, int cy, CWndBase pWnd, int nID ) {
+		super.Create( posx, posy, cx, cy, pWnd, nID );
+		ResizeWindow(this.pImgSrc.width,this.pImgSrc.height);
+	}
+	void SetColorKey( color nColor ) {
+		m_nColorKey = nColor;
+		m_bColorKey = true;
+		flipImg();
+		changeFrame();
+	}
+	void SetMirror( boolean bMirror )
+	{
+		this.m_bMirror = bMirror;
+	}
+	void SetDrawRate( float fRate ){
+		m_fRate = fRate;
+		m_nDrawWidth = this.m_nFrameWidth * fRate;
+		m_nDrawHeight = this.m_nFrameHeight * fRate;
+		ResizeWindow(m_nDrawWidth,m_nDrawHeight);
+	}
+	void setFrame( int nFrame )
+	{
+		try
+		{
+			if ( this.m_nCurFrame != nFrame && nFrame < m_nMaxFrame )
+			{
+				this.m_nCurFrame = nFrame;
+				changeFrame();
+			}
+		}
+		catch(e)
+		{
+			println("setFrame " + e);
+		}
+	}
+	int getFrame( ) {
+		return this.m_nCurFrame;
+	}
+	int getFrame( ){ 
+		return this.m_nCurFrame;
+	}
+	void changeFrame()
+	{
+		try
+		{
+			int nDrawFrame = this.m_nCurFrame;
+			if( this.m_bMirror == true )
+			{
+				int nCurCol = m_nFrameCol - m_nCurFrame % m_nFrameCol - 1;
+				int nCurRow = Math.floor(this.m_nCurFrame / m_nFrameCol);
+				this.pImgDraw = this.pImgFlip.get( nCurCol * m_nFrameWidth,nCurRow * m_nFrameHeight,this.m_nFrameWidth,this.m_nFrameHeight)
+			}
+			else
+			{
+				int nCurCol = m_nCurFrame % m_nFrameCol;
+				int nCurRow = Math.floor(this.m_nCurFrame / m_nFrameCol);
+				this.pImgDraw = this.pImgSrc.get( nCurCol * m_nFrameWidth,nCurRow * m_nFrameHeight,this.m_nFrameWidth,this.m_nFrameHeight)
+			}
+		}
+		catch(e)
+		{
+			println("changeframe " + e);
+		}
+	}
+	void addFrame()
+	{
+		this.m_nCurFrame++;
+		if( this.m_nCurFrame >= this.m_nFrameCol )
+		{
+			this.m_nCurFrame = 0;
+		}
+		changeFrame();
+	}
+	void onDraw()
+	{
+		if( m_bVisible ) {
+			try
+			{
+				if( this.pImgDraw != 0 )
+				{
+					image( this.pImgDraw, this.m_rcAbsWnd.left, this.m_rcAbsWnd.top,m_nDrawWidth,m_nDrawHeight );
+				}
+				else
+				{
+					//println("pImgDraw == 0 ");
+				}
+				super.onDraw();
+			}
+			catch(e)
+			{
+				println("draw " + e);
+			}
+		}
+	}
+	void flipImg()
+	{
+		try
+		{
+			for( var hei = 0; hei < this.pImgSrc.height; hei++ )
+			{
+				var wid = this.pImgSrc.width - 1;
+				var widDst = 0;
+				for( ; wid >= 0; wid-- )
+				{
+					var vIndex = ((this.pImgSrc.width * hei) + wid);
+					var vDstIndex = ((this.pImgSrc.width * hei) + widDst);
+					
+					color dstColor = this.pImgSrc.pixels[vIndex];
+					if( m_bColorKey ) {
+						if( m_nColorKey == dstColor ) {
+							
+							int colorA = dstColor >> 24 & 0xFF;
+
+							int colorR = dstColor >> 16 & 0xFF;
+
+							int colorG = dstColor >> 8 & 0xFF;
+
+							int colorB = dstColor & 0xFF;
+							//println(colorA + " " + colorR + " " + colorG + " " + colorB);
+							dstColor = color(colorR,colorG,colorB,0);
+							this.pImgSrc.pixels[vIndex] = dstColor;
+						}
+					}
+					this.pImgSrc.pixels[vIndex] = dstColor;
+					this.pImgFlip.pixels[vDstIndex] = dstColor;
+					widDst++;
+				}
+			}
+		}
+		catch(e)
+		{
+			println("flipimg " + e);
+		}
+	}
+}
+class CWndText extends CWndBase {
+	int		m_nColorR	= 255;
+	int		m_nColorG	= 255;
+	int		m_nColorB	= 255;
+	int		m_nAlpha	= 255;
+	String	m_strText	= "";
+	int		m_nTextSize	= 14;
+	CWndText()
+	{
+		super();
+	}
+	void SetFontSize( int nSize ) {
+		m_nTextSize = nSize;
+	}
+	void SetColor( int crR, int crG, int crB ) {
+		this.m_nColorR = crR;
+		this.m_nColorG = crG;
+		this.m_nColorB = crB;
+	}
+	void SetText( String text )
+	{
+		this.m_strText = text;
+	}
+	boolean Create( int posx, int posy, int cx, int cy, CWndBase pWnd, int nID ) {
+		super.Create( posx, posy, cx, cy, pWnd, nID );
+	}
+	void onDraw() {
+		if ( m_bVisible ) {
+			
+			textFont(fontA, m_nTextSize);
+			fill(this.m_nColorR, this.m_nColorG, this.m_nColorB,m_nAlpha);
+			text(this.m_strText, m_rcAbsWnd.left + 0 ,m_rcAbsWnd.top + 10);
+		}
+	}
+}
+class CMapShow extends CWndBase {
+	ArrayList	m_arrayMap = null;
+	long		m_lTimeCnt = 0;
+	CMapShow() {
+		super();
+		m_arrayMap = new ArrayList();
+	}
+	boolean Create( int posx, int posy, int cx, int cy, CWndBase pWnd, int nID ) {
+		boolean bRes = super.Create(posx, posy, cx, cy, pWnd, nID );
+		Init();
+		return bRes;
+	}
+	void Init() {
+		int nLineCnt = 10;
+		for( int nMapIdx = 0; nMapIdx < 25;nMapIdx++ ){ 
+			CWndTga	pMap = new CWndTga("kag/world.png",16,16);
+			pMap.Create( 0,0,0,0, this,1);
+			pMap.setFrame( 10 );
+			pMap.SetDrawRate(g_fCommonRate);
+			int nPosX = nMapIdx % nLineCnt * pMap.m_nDrawWidth;
+			int nPosY = Math.floor(nMapIdx / nLineCnt) * pMap.m_nDrawHeight;
+			pMap.MoveWindow( (Math.floor(nMapIdx / nLineCnt)) % 2 * 30 + nPosX + 80 * (nMapIdx % nLineCnt), nPosY + 90 * (Math.floor(nMapIdx / nLineCnt)));
+			pMap.m_bShowBox = true;
+			
+			
+			m_arrayMap.add(pMap);
+		}
+	}
+	
+	int isPlayerNotCollide( CRect rc1, boolean bDirUp ) {
+		int nNotCollide = 0;
+		for ( int idx = 0; idx < m_arrayMap.size(); idx++ ) {
+			CWndTga pMapRes = (CWndTga) m_arrayMap.get( idx );
+			int nCurState = intersect(rc1,pMapRes.m_rcAbsWnd,bDirUp);
+			if(nCurState !=0 ) {
+				nNotCollide = nNotCollide | nCurState;
+			}
+		}
+		return nNotCollide;
+	}
+	void OnUpdate( long nOffset ) {
+		super.OnUpdate( nOffset );
+		m_lTimeCnt += nOffset;
+		if( m_lTimeCnt >= g_lMovementTimeCnt ){
+			m_lTimeCnt -= g_lMovementTimeCnt;
+			
+			int nCurState = isPlayerNotCollide(g_pPlayer.m_rcAbsWnd,true);
+			if( nCurState == g_nIntersectVertTop) {
+				if( g_nPlayerState == g_nPlayerFall ) {
+					g_nPlayerSpeed = 0;
+					g_nPlayerState	= g_nPlayerIdle;
+					g_nCurJumpHight	= 0;
+				}
+				else if( g_nPlayerState == g_nPlayerJump ) {
+					if( g_nCurJumpHight != 0 ) {
+						g_nPlayerState	= g_nPlayerFall;
+					}
+				}
+			}
+			else if( nCurState == g_nIntersectVertBottom ){
+				g_nPlayerState	= g_nPlayerFall;
+				g_pPlayer.MoveDirect(CWndBase.m_nDirDown ,g_nPlayerSpeed);
+			}
+			else {
+				if( g_nPlayerState != g_nPlayerJump ) {
+					if( nCurState == g_nIntersectNone ) {
+						CRect rc1 = new CRect(g_pPlayer.m_rcAbsWnd);
+						rc1.top 	+= g_nPlayerSpeed;
+						rc1.bottom  += g_nPlayerSpeed;
+						int nStateFuture = isPlayerNotCollide(rc1,true);
+						if( nStateFuture == g_nIntersectNone ){
+							g_nPlayerSpeed = g_nPlayerConstSpeed;
+							g_pPlayer.MoveDirect(CWndBase.m_nDirDown ,g_nPlayerSpeed);
+							g_nPlayerState	= g_nPlayerFall;
+						}
+						else {
+							g_nPlayerState	= g_nPlayerIdle;
+							g_nCurJumpHight	= 0;
+						}
+					}
+					else {
+						g_nPlayerState	= g_nPlayerIdle;
+					}
+				}
+			}
+			if( g_nPlayerState == g_nPlayerJump ) {
+				if( g_nCurJumpHight < g_nMaxJumpHight ){
+					g_nCurJumpHight += g_nPlayerSpeed;
+					g_pPlayer.MoveDirect(CWndBase.m_nDirUp,g_nPlayerSpeed);
+				}
+				else {
+					g_nPlayerState = g_nPlayerFall;
+				}
+			}
+		}
+	}
+	int OnKeyDown ( int keyType, int keyValue ) {
+		int nRes = WND_RESULT_NO;
+		try {
+			if( keyValue == LEFT ) {
+				CRect rc1 = new CRect(g_pPlayer.m_rcAbsWnd);
+				rc1.left -= 5;
+				rc1.right -= 5;
+				int nCurState = isPlayerNotCollide(rc1,false);
+				if( g_nPlayerState == g_nPlayerIdle || ( nCurState != g_nIntersectHori ) ) {
+					g_pPlayer.MoveDirect(m_nDirLeft,5);
+				}
+				else{
+				}
+			}
+			else if (keyValue == RIGHT ) {
+				CRect rc1 = new CRect(g_pPlayer.m_rcAbsWnd);
+				rc1.left += 5;
+				rc1.right += 5;
+				int nCurState = isPlayerNotCollide(rc1,false);
+				if( g_nPlayerState == g_nPlayerIdle || ( nCurState != g_nIntersectHori ) ) {
+					g_pPlayer.MoveDirect(m_nDirRight,5);
+				}
+				else{
+				}
+			}
+			if ( keyValue == UP && g_nPlayerState == g_nPlayerIdle ) {
+				g_nPlayerState = g_nPlayerJump;
+			}
+			if( keyValue == 32 ) {
+			}
+		}
+		catch ( e ){
+		}
+		return nRes;
+	}
+	
+	int OnLButtonDown(int nFlags,CPoint point){
+		
+		//( (Math.floor(nMapIdx / nLineCnt)) % 2 * 30 + nPosX + 80 * (nMapIdx % nLineCnt), nPosY + 90 * (Math.floor(nMapIdx / nLineCnt)));
+		/*
+		int nCol = Math.floor((point.x - g_pMapShow.m_rcAbsWnd.left) / 16);
+		int nRow = Math.floor((point.y - g_pMapShow.m_rcAbsWnd.top) / 16);
+		
+		//println( "ncol = " + nCol + " row = " + nRow );
+		int nCurFrame = 16 * nRow + nCol;
+		
+		CWndTga pMap = (CWndTga) this.arrayChild.get( nCurFrame );
+		
+		pMap.SetDataFile("kag/world.png",16,16);
+		pMap.SetDrawRate(g_fCommonRate);
+		pMap.setFrame( g_pMouseCursor.getFrame() ); 
+		*/
+	}
+}
+class CMainInput extends CWndBase {
+	
+	ArrayList	m_arrayGuan = null;
+	int			m_nLastDir = 0;
+	int			m_nGuanxingTick = 0;
+	boolean		m_bGuanxing = false;
+	int			s_countTime = 300;
+	int			m_nCntGuan = 5;
+	boolean		m_bShowIt	= true;
+	CMainInput() {
+		super(); 	
+		m_arrayGuan = new ArrayList();
+		try{
+			m_arrayGuan.clear();
+		}
+		catch(e){
+			println(e);
+		}
+	}
+	void onDraw()
+	{
+		super.onDraw();
+	}
+	int OnKeyDown ( int keyType, int keyValue ) {
+		int nRes = WND_RESULT_NO;
+		try {
+			if( keyValue == LEFT ) {
+				if ( g_pKag.getFrame() == 1 ){
+					g_pKag.setFrame(2);
+				}
+				else if ( g_pKag.getFrame() == 2 ){
+					g_pKag.setFrame(1);
+				}
+			}
+			else if (keyValue == RIGHT ) {
+				if ( g_pKag.getFrame() == 1 ){
+					g_pKag.setFrame(2);
+				}
+				else if ( g_pKag.getFrame() == 2 ){
+					g_pKag.setFrame(1);
+				}
+			}
+		}
+		catch ( e ){
+		}
+		return nRes;
+	}
+	
+	int OnLButtonUp(int nFlags,CPoint point){
+		//println("mouse x = " + point.x + " " + point.y);
+		//println("m_rcAbsWnd x = " + g_pGuiBase.m_rcAbsWnd.left + " " + g_pGuiBase.m_rcAbsWnd.top);
+		int nCol = Math.floor((point.x - g_pGuiBase.m_rcAbsWnd.left) / 16);
+		int nRow = Math.floor((point.y - g_pGuiBase.m_rcAbsWnd.top) / 16);
+		
+		//println( "ncol = " + nCol + " row = " + nRow );
+		int nCurFrame = 16 * nRow + nCol;
+		
+		g_pMouseCursor.SetDataFile("kag/world.png",16,16);
+		g_pMouseCursor.SetDrawRate(g_fCommonRate);
+		g_pMouseCursor.setFrame( nCurFrame ); 
+		return WND_RESULT_NO;
+	}
+	int OnMessage( int nUIEvent, int nID ) {
+		int nRes = WND_RESULT_NO;
+		if( WND_EVENT_CLICK == nUIEvent ) {
+		}
+		return nRes;
+	}
+	
+	int OnRButtonUp(int nFlags,CPoint point){
+		if( m_bShowIt ) {
+			MoveDirect(m_nDirRight,250);
+		}
+		else {
+			MoveDirect(m_nDirLeft,250);
+		}
+		m_bShowIt = !m_bShowIt;
+		return WND_RESULT_YES;
+	}
+}
+
+
+</script><canvas width="200" height="200" cursor= "none"></canvas></p>
+<div style="height:0px;width:0px;overflow:hidden;"><img src='data/sky.jpg' id='sky.jpg'/><img src='data/teddy.gif' id='teddy.gif'/></div>
+</body>
+</html>
