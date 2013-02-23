@@ -1,0 +1,1368 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <script src="processing.js"></script>
+  <script src="sound.js"></script>
+  <!--canvas data-processing-sources="test.pde"></canvas> -->
+<link rel="stylesheet" href="style.css"/></head>
+<body><h1><a href="http://wof.the9.com/">Kaleidos</a></h1>
+<h2>Sprite</h2>
+
+<p>by <a href="http://wof.the9.com/">kaleidos</a>. 
+aha, wof dev.
+</p>
+
+<p><a href="http://processing.org/learning/basics/sprite.html"><b>先用鼠标点击黑色区域.键盘左右键操作指向，ctrl取书放书，把书按照序号0~9整理。</b> </a><br>
+<audio id="clickSound">
+	<source src="she_sailed_away.mp3">
+</audio>
+<script type="application/processing">
+/* @pjs preload="pic/book1.PNG"; 
+ preload="pic/hand.png"; */
+
+float xpos = 0;
+float ypos = 0;
+float drag = 30.0;
+int iconWid = 80;
+int iconHei = 80;
+int roleSpeed  = 20;
+int nLastKey = 0;
+int WND_RESULT_NO = 0;
+int WND_RESULT_YES = 1;
+int WND_EVENT_CLICK = 0;
+String debugStr = "afaf";
+CWndTga pHand;
+PFont fontA = 0;
+int value = 0;
+char letter = char(48+16);
+wnddesktop pDesk ;
+int INPUT_KEYDOWN = 1;
+int INPUT_KEYUP = 2;
+boolean g_bGetGroup = false;
+CGroup g_pCurGroup = null;
+CGroup g_pFirstGroup = null;
+int g_nBtnLeft = 151;
+int g_nBtnRight = 152;
+int g_nBtnCtrl = 153;
+
+CGroup g_pLastGroup = null;
+CGroup g_pNextGroup = null;
+
+CWndText	g_pOverText;
+
+ArrayList 	pBookArray;
+ArrayList 	pBookRandArray;
+ArrayList 	pGroupArray;
+
+CWndBase 	s_pWndLBDown = null;
+boolean 	m_bLPressed	  	= false;
+boolean		m_bLReleased  	= false;
+boolean		m_bRPressed  	= false;
+boolean		m_bRReleased  	= false;
+int			g_nCurIndex		= 0;
+int			g_nBookLen		= 10;
+
+CPoint m_ptMouse			= new CPoint(0,0);
+int g_nPosStart = 40;
+int g_nWidth = 60;
+void randBook ( arrayBook, arrayRand ) {
+	arrayBook.clear();
+	int nArrayLen = arrayRand.size();
+	if ( nArrayLen > 0 )
+	{
+		for ( int idx = 0; idx < arrayRand.size(); idx++ ) {
+			CBook pBook = (CBook) arrayRand.get( idx );
+			arrayBook.add( pBook );
+		}
+		arrayRand.clear();
+		
+		/*
+		CBook pBook = (CBook) arrayBook.get( 2 );
+		arrayRand.add( pBook );
+		CBook pBook = (CBook) arrayBook.get( 0 );
+		arrayRand.add( pBook );
+		CBook pBook = (CBook) arrayBook.get( 1 );
+		arrayRand.add( pBook );
+		/*
+		CBook pBook = (CBook) arrayBook.get( 0 );
+		arrayRand.add( pBook );
+		CBook pBook = (CBook) arrayBook.get( 4 );
+		arrayRand.add( pBook );
+		//arrayBook.clear();
+		*/
+		
+		
+		
+		while ( true ) {
+			if ( arrayBook.size() > 0 ) {
+				noiseSeed(0);
+				int szArray = arrayBook.size();
+				int nIndex = (int)random(0,szArray) ;
+				CBook pBook = (CBook) arrayBook.remove( nIndex );
+				arrayRand.add( pBook );
+			}
+			else
+			{
+				break;
+			}
+		}
+		
+	}
+}
+void _RestartGame() 
+{
+	randBook( pBookArray, pBookRandArray );
+
+	for ( int idx = 0; idx < pBookRandArray.size(); idx++ ) {
+		CBook pWnd = (CBook) pBookRandArray.get( idx );
+		
+		int nPosX = g_nPosStart + idx * g_nWidth;
+		pWnd.MoveWindow( nPosX, 30 );
+		pWnd.SetWindowTop();
+		
+		pGroupArray.add( pWnd.m_pGroup );
+	}
+
+	CBook pWnd = pBookRandArray.get( 0 );
+	pHand.MoveWindow( pWnd.m_rcRect.left,pWnd.m_rcRect.top );
+	
+}
+void setup() 
+{
+	size(1024,600);
+	
+	pDesk = new wnddesktop();
+	//pDesk.Create( 0,0,1,1, null,0);
+	pDesk.ResizeWindow(1,1);
+	//psound( "clickSound");
+	try
+	{
+		fontA = loadFont("Courier New");
+		//textFont(fontA, 25);
+		//textAlign(LEFT);
+		//translate(1, 1);	
+		
+		CWndBase pArrayBase = new CWndBase();
+		pArrayBase.Create( 0,0,0,0, pDesk,0);
+		pBookArray = new ArrayList();
+		pBookRandArray = new ArrayList();
+		pGroupArray = new ArrayList();
+		for (int i = 0; i < g_nBookLen; i = i + 1) {
+			CBook pBook = new CBook(i);
+			pBook.Create( 0,0,100,100,pArrayBase,i );
+			pBookRandArray.add(pBook);
+		}
+		
+		pHand = new CWndTga("pic/hand.png",1,1);
+		pHand.Create( 0,0,0,0, pDesk,40);
+		
+		CMainInput pInput = new CMainInput();
+		pInput.Create( 400,300,100,100,pDesk,0 );
+		
+		
+		_RestartGame();
+		firstConnectGroup ( pBookRandArray );
+		_InitHand ( pBookRandArray );
+		
+		g_pOverText	= new CWndText();
+		g_pOverText.Create( 300, 400, 100, 30, pDesk, 2 );
+		g_pOverText.SetText("点我");
+		g_pOverText.SetColor(0,255,255);
+		g_pOverText.SetFontSize(25);
+		//g_pOverText.m_bVisible = false;
+		
+		CWndButton pClick = new CWndButton();
+		pClick.m_bShowBox = true;
+		pClick.Create( -300,50,100,100,pInput,g_nBtnLeft );
+		
+		CWndButton pClick = new CWndButton();
+		pClick.m_bShowBox = true;
+		pClick.Create( 150,50,100,100,pInput,g_nBtnRight );
+		
+		CWndButton pCtrl = new CWndButton();
+		pCtrl.m_bShowBox = true;
+		pCtrl.Create( -100,150,100,100,pInput,g_nBtnCtrl );
+	}
+	catch(e)
+	{
+		println(e);
+	}
+	frameRate(60);  
+}
+void _SetHand( CGroup pGroup ) {
+	CBook pGroupBook = pGroup.pBookArray.get(0);
+	int nGroupCnt = pGroup.m_nGroupCnt;
+	int nPosX 	= pGroupBook.m_rcRect.left + g_nWidth * nGroupCnt / 2 ;
+	pHand.MoveWindow( nPosX ,pGroupBook.m_rcRect.top + 50);
+	g_pCurGroup = pGroup;
+}
+void _InitHand ( ArrayList pBookRandArray ) {
+	int nSize = pBookRandArray.size();
+	if ( nSize > 0 ) {
+		CBook pGroupBook = (CBook)pBookRandArray.get( 0 );
+		_SetHand( pGroupBook.m_pGroup );
+	}
+}
+void firstConnectGroup ( ArrayList pBookRandArray ) {
+	int nSize = pBookRandArray.size();
+	int nIdx = 0;
+	if ( nSize > 0 ){
+		CBook pGroupBook = (CBook)pBookRandArray.get( nIdx );
+		CGroup pGroup = pGroupBook.m_pGroup;
+		g_pFirstGroup = pGroup;
+		pGroup.m_pLast = null;
+		while ( nIdx < nSize ) {
+			pGroupBook = (CBook)pBookRandArray.get( nIdx );
+			CBook pNextBook = (CBook) pBookRandArray.get( nIdx + 1 );
+			if ( pNextBook != null ) {
+				if ( pGroupBook.m_nIndex == pNextBook.m_nIndex - 1 ) {
+					//println("连贯的可以做成一个group" + " + " + pGroupBook.m_nIndex);
+					pNextBook.m_pGroup.pBookArray.clear();
+					pNextBook.m_pGroup = pGroupBook.m_pGroup;
+					pGroupBook.m_pGroup.Add( pNextBook );
+				}
+				else {
+					connect2Group( pGroup, pNextBook.m_pGroup );
+					pGroup = pNextBook.m_pGroup;
+					pNextBook.m_pGroup.m_pNext = null;
+				}
+			}
+			else {
+				//println("pNextBook is <" + " " + pNextBook + ">" );
+			}
+			nIdx++;
+			pGroupBook = pNextBook;
+		}
+	} 
+	else {
+		println("pBookRandArray is empty");
+	}
+}
+void keyReleased()  {
+
+  if(value == 0) {
+
+    value = 255;
+
+  } else {
+    value = 0;
+
+  }
+
+}
+
+class CRect{
+	int			left		= 0;
+	int			top			= 0;
+	int			right		= 0;
+	int			bottom		= 0;
+	CRect( int posx, int posy, int cx, int cy ) {
+		this.left 	= posx;
+		this.top 	= posy;
+		this.right 	= posx + cx;
+		this.bottom = posy + cy;
+	}
+}
+void copyRect( CRect rcDst, CRect rcSrc )
+{
+	rcDst.left 		= rcSrc.left;
+	rcDst.right 	= rcSrc.right;
+	rcDst.top 		= rcSrc.top;
+	rcDst.bottom 	= rcSrc.bottom;
+}
+void offsetRect ( CRect rc, int dx, int dy ) 
+{
+	rc.left 	= rc.left 	+ dx;
+	rc.right 	= rc.right 	+ dx;
+	rc.top 		= rc.top 	+ dy;
+	rc.bottom 	= rc.bottom + dy;
+}
+void SetRectEmpty( CRect rc )
+{
+	rc.left 	= 0;
+	rc.right 	= 0;
+	rc.top 		= 0;
+	rc.bottom 	= 0;
+}
+void SetRect( CRect rc, int posx, int posy, int cx, int cy )
+{
+	rc.left 	= posx;
+	rc.right 	= posx + cx;
+	rc.top 		= posy;
+	rc.bottom 	= posy + cy;
+}
+boolean PtInRect( CRect rc, CPoint pt ) {
+	if ( pt.x >= rc.left && pt.x < rc.right && pt.y >= rc.top && pt.y < rc.bottom )
+	{
+		return true;
+	}
+	return false;
+}
+void mouseMoved() {
+	if ( mousePressed == false )
+	{
+		//println("not press");
+	}
+	else
+	{
+		//println(mouseButton);
+	}
+}
+void mousePressed() {
+  if (mouseButton == LEFT) {
+	m_bLPressed	  	= true;
+	m_bLReleased  	= false;
+    //println("left pressed");
+  } else if (mouseButton == RIGHT) {
+    println("right pressed");
+	m_bRPressed  	= true;
+	m_bRReleased  	= false;
+  } else {
+    //println("other pressed");
+  }
+}
+void mouseReleased() {
+  if(mouseButton == LEFT) {
+    //println("left release");
+	m_bLPressed	  	= false;
+	m_bLReleased  	= true;
+  } else if (mouseButton == RIGHT) {
+    //println("right release");
+	m_bRPressed  	= false
+	m_bRReleased    = true;
+  }
+}
+
+void draw() 
+{ 
+	background(0);
+	try
+	{
+		//fill( 150,110,150,200);
+		//rect(300, 385, 50, 30);
+		//println("x " + m_ptMouse.x + " y " + m_ptMouse.y);
+		pDesk.onDraw();
+		m_ptMouse.x = mouseX;
+		m_ptMouse.y = mouseY;
+		pDesk.OnMouseInput();
+		//println(" press " + mousePressed );
+		if( m_bLReleased == true ) {
+			if ((mouseButton == LEFT)) {
+				m_bLReleased = false;
+			}
+		}
+	}
+	catch(e)
+	{
+		println(e);
+	}
+}
+void keyReleased() {
+	pDesk.OnKeyboardMessage( INPUT_KEYDOWN, key, keyCode );
+}
+void keyPressed() {
+	pDesk.OnKeyboardMessage( INPUT_KEYUP, key, keyCode );
+}
+class CWndBase{
+	ArrayList	arrayChild 	= 0;
+	CWndBase	m_pParent	= 0;
+	boolean		m_bShowBox 	= false;
+	boolean 	m_bVisible  = true;
+	boolean 	m_bDragWithParent = true;
+	boolean		m_bNeedMouseInput	= true;
+	static int	m_nDirRight		= 1;
+	static int	m_nDirLeft		= 2;
+	static int	m_nDirUp		= 3;
+	static int	m_nDirDown		= 4;
+	CRect		m_rcRect;
+	CRect		m_rcAbsWnd;
+	
+	int			m_nDlgID	= 0;
+	
+	CWndBase() {
+		this.m_rcRect = new CRect(0,0,0,0);
+		this.m_rcAbsWnd = new CRect(0,0,0,0);
+		SetRectEmpty(this.m_rcRect);
+		
+		this.arrayChild		= new ArrayList();
+	}
+
+	int OnKeyDown ( int keyType, int keyValue ) {
+		int nRes = WND_RESULT_NO;
+		//println("typeddown " + int(key) + " " + keyCode);
+		return nRes;
+	}
+	int OnKeyUp ( int keyType, int keyValue ) {
+		int nRes = WND_RESULT_NO;
+		//println("typedup " + int(key) + " " + keyCode);
+		return nRes;
+	}
+	int OnChar ( int keyType, int keyValue ) {
+		int nRes = WND_RESULT_NO;
+		//println("onchar " + int(key) + " " + keyCode);
+		return nRes;
+	}
+	
+	int SendMessage( int nUIEvent, int nID ) {
+		return OnMessage( nUIEvent, nID );
+	}
+	int OnMessage( int nUIEvent, int nID ) {
+		int nResult = WND_RESULT_NO;
+		if ( m_pParent )
+		{
+			nResult = m_pParent.OnMessage( nUIEvent, nID );
+		}
+		else
+		{
+
+		}
+		return nResult;
+	}
+	int SendMessageToParent( int nUIEvent, const int& nID ){
+		int nRes = WND_RESULT_NO;
+		if( m_pParent )
+		{
+			nRes = m_pParent.SendMessage( nUIEvent, nID );
+		}
+		return nRes;
+	}
+	int ProcessKeyboardMessage( int keyPress, int keyType, int keyValue ) {
+		
+		int nRes = WND_RESULT_NO;
+		if (keyType != CODED && keyPress == INPUT_KEYDOWN ) {
+			nRes = OnChar( keyType, keyValue );
+			//println("onchar");
+		}
+		if( nRes == WND_RESULT_NO )
+		{
+			if( keyPress == INPUT_KEYDOWN  )
+			{
+				nRes = OnKeyDown( keyType, keyValue );
+			}
+			else if( keyPress == INPUT_KEYUP  )
+			{
+				nRes = OnKeyUp( keyType, keyValue );
+			}
+		}
+
+		return nRes;
+	}
+	int OnKeyboardMessage( int keyPress, int keyType, int keyValue ) {
+		int nRes = WND_RESULT_NO;
+		if(!IsVisible() || !IsWindowEnabled())
+			return nRes;
+
+		for (int idx = arrayChild.size()-1; idx >= 0; idx--) {
+			CWndBase pWnd = (CWndBase) this.arrayChild.get( idx );
+			if ( pWnd )
+			{
+				nRes = pWnd.OnKeyboardMessage( keyPress, keyType, keyValue );
+			}
+		}	
+		if( nRes == WND_RESULT_NO )
+		{
+			nRes = ProcessKeyboardMessage( keyPress, keyType, keyValue );
+		}
+
+		return nRes;
+	}
+	boolean Create( int posx, int posy, int cx, int cy, CWndBase pWnd, int nID ) {
+		SetRect( this.m_rcRect,posx,posy,cx, cy);
+		//println(m_rcRect.left + " " + m_rcRect.right + " " + m_rcRect.top + " " + m_rcRect.bottom);
+		SetDlgID( nID );
+		SetParent( pWnd );
+		return true;
+	}
+	void SetDlgID( int nID ) {
+		m_nDlgID = nID;
+	}
+	void SetWindowTop() {
+		for ( int idx = 0; idx < this.m_pParent.arrayChild.size(); idx++ ) {
+			CBase pWnd = (CBase)this.m_pParent.arrayChild.get(idx);
+			if ( this == pWnd )
+			{
+				CBase pRemoveWnd = this.m_pParent.arrayChild.remove(idx);
+				this.m_pParent.arrayChild.add( pRemoveWnd );
+				break;
+			}
+		}
+	}
+	void MoveDirect( int nDir, int nValue ) {
+		if( nDir == m_nDirRight ) {
+			MoveWindow( this.m_rcRect.left + nValue, this.m_rcRect.top );
+		}
+		else if( nDir == m_nDirLeft ) {
+			MoveWindow( this.m_rcRect.left - nValue, this.m_rcRect.top );
+		}
+		else if( nDir == m_nDirUp ) {
+			MoveWindow( this.m_rcRect.left , this.m_rcRect.top - nValue );
+		}
+		else if( nDir == m_nDirDown ) {
+			MoveWindow( this.m_rcRect.left , this.m_rcRect.top + nValue );
+		}
+	}
+	void MoveWindow( int posx, int posy ) {
+		this.m_rcRect.right 	+= ( posx - this.m_rcRect.left );
+		this.m_rcRect.left 		= posx;
+		this.m_rcRect.bottom 	+= ( posy - this.m_rcRect.top);
+		this.m_rcRect.top 		= posy;
+		this.CheckAbsWnd();
+	}
+	void ResizeWindow( int cx, int cy ) {
+		this.m_rcRect.right 	= this.m_rcRect.left + cx;
+		this.m_rcRect.bottom 	= this.m_rcRect.top + cy;
+		this.CheckAbsWnd();
+	}
+	void removeChild( CWndBase pChild ) {
+		for (int idx = arrayChild.size()-1; idx >= 0; idx--) {
+			CWndBase pWnd = (CWndBase) this.arrayChild.get( idx );
+			if ( pWnd == pChild )
+			{
+				this.arrayChild.remove( idx );
+				break;
+			}
+		}
+	}
+	void drawBox()
+	{
+		if( this.m_bVisible && this.m_bShowBox ) {
+			line(m_rcAbsWnd.left, m_rcAbsWnd.top, m_rcAbsWnd.right, m_rcAbsWnd.top);			
+			line(m_rcAbsWnd.left, m_rcAbsWnd.bottom , m_rcAbsWnd.right, m_rcAbsWnd.bottom );
+			line(m_rcAbsWnd.left, m_rcAbsWnd.top, m_rcAbsWnd.left, m_rcAbsWnd.bottom );
+			line(m_rcAbsWnd.right, m_rcAbsWnd.top, m_rcAbsWnd.right, m_rcAbsWnd.bottom );
+			stroke(255,255,128);
+			
+			//println(m_rcAbsWnd.left + " " + m_rcAbsWnd.right + " " + m_rcAbsWnd.top + " " + m_rcAbsWnd.bottom);
+		}
+	}
+	void GetWindowRect( CRect rc )
+	{
+		copyRect( rc, this.m_rcAbsWnd);
+	}
+	void onDraw()
+	{
+		for ( int idx = 0; idx < arrayChild.size(); idx++ ) {
+			CWndBase pWnd = (CWndBase) this.arrayChild.get( idx );
+			pWnd.onDraw();
+			pWnd.drawBox();
+		}
+	}
+	void CheckAbsWnd()
+	{
+		copyRect( this.m_rcAbsWnd, this.m_rcRect );
+		//println(m_rcRect.left + " " + m_rcRect.right + " " + m_rcRect.top + " " + m_rcRect.bottom);
+		if( this.m_bDragWithParent )
+		{
+			if( this.m_pParent )
+			{
+				offsetRect( m_rcAbsWnd, m_pParent.m_rcAbsWnd.left, m_pParent.m_rcAbsWnd.top);
+			}
+			for ( int idx = 0; idx < arrayChild.size(); idx++ ) {
+				CWndBase pWnd = (CWndBase) this.arrayChild.get( idx );
+				if ( pWnd != 0 && pWnd.m_bDragWithParent == true)
+				{
+					pWnd.CheckAbsWnd();
+				}
+			}
+		}
+	}
+	void SetParent( CWndBase pWnd )
+	{
+		if ( this.m_pParent != 0 )
+		{
+			this.m_pParent.removeChild(this);
+		}
+		this.m_pParent = pWnd;
+		if ( this.m_pParent != 0 )
+		{
+			pWnd.arrayChild.add(this);
+			//println(this.m_nDlgID);
+			this.CheckAbsWnd();
+		}
+	}
+	boolean IsVisible()
+	{
+		return m_bVisible;
+	}
+	boolean IsWindowEnabled()
+	{
+		return true;
+	}
+	boolean NeedMouseInput() {
+		return m_bNeedMouseInput;
+	}
+	
+	boolean PtInWnd( CPoint pt ) 
+	{
+		for ( int idx = 0; idx < arrayChild.size(); idx++ ) {
+			CWndBase pWnd = (CWndBase) this.arrayChild.get( idx );
+			if(pWnd.IsVisible() && pWnd.PtInWnd(pt)){
+				return true;
+			}
+		}
+		
+		RECT rcWnd = new CRect(0,0,0,0);
+		this.GetWindowRect(rcWnd);
+		
+		if ( PtInRect(rcWnd, pt))
+		{
+			rcWnd = 0;
+			return true;
+		}
+		
+		rcWnd = 0;
+		return false;
+	}
+	CWndBase GetChildWndPtIn( CPoint pt )
+	{
+		CWndBase pWnd = 0;
+
+		for (int idx = this.arrayChild.size()-1; idx >= 0; idx--) {
+			CWndBase pWnd = (CWndBase) this.arrayChild.get( idx );
+			if( pWnd.IsVisible() && pWnd.NeedMouseInput() && pWnd.PtInWnd(pt) ) return pWnd;
+		}
+		
+		return null;
+	}
+	int OnMouseInput( )
+	{
+		if(!IsVisible())
+			return 0;
+
+		int lRes = 0;
+
+		CWndBase pWnd = GetChildWndPtIn(m_ptMouse);
+		if(!pWnd) 
+		{
+			m_pWndCursorIn = this;
+		}
+
+		if(!IsWindowEnabled())
+		{
+			return 1;
+		}
+
+		if( pWnd )
+		{
+			lRes = pWnd.OnMouseInput();
+		}
+
+		if(lRes == 0)
+		{
+			lRes = ProcessMouseInput();
+		}
+
+		return lRes;
+	}
+	int ProcessMouseInput( )
+	{
+		int lRes = WND_RESULT_NO;
+		
+		try {
+			int nFlags = 0;
+			if(m_bLPressed)
+			{
+				lRes = OnLButtonDown(nFlags,m_ptMouse);
+				s_pWndLBDown = this;
+				//println("down down " + s_pWndLBDown.m_nDlgID);
+				//println("down this " + this.m_nDlgID);
+			}
+			if(m_bLReleased)
+			{
+				lRes = OnLButtonUp(nFlags,m_ptMouse);
+				//println("release down " + s_pWndLBDown.m_nDlgID);
+				//println("release this " + this.m_nDlgID);
+				if(s_pWndLBDown == this) {
+					OnLButtonClick(nFlags, m_ptMouse);
+				}
+				else {
+					//println(s_pWndLBDown.m_nDlgID + " " + this.m_nDlgID);
+				}
+				if ( lRes == WND_RESULT_YES )
+				{
+					m_bLReleased = false
+				}
+			}
+			if(m_bRPressed)
+			{
+				lRes = OnRButtonDown(nFlags, m_ptMouse);
+			}
+			if(m_bRReleased)
+			{
+				lRes = OnRButtonUp(nFlags,m_ptMouse);
+				if ( lRes == WND_RESULT_YES )
+				{
+					m_bRReleased = false
+				}
+			}
+			if ( lRes == WND_RESULT_NO )
+			{
+				lRes = OnMouseMove(nFlags, m_ptMouse);
+			}
+		}
+		catch ( e ) {
+			println(e );
+		}
+		
+		return lRes;
+	}
+	int OnRButtonDown(int nFlags,CPoint point) {
+		return WND_RESULT_NO;
+	}
+	int OnRButtonUp(int nFlags,CPoint point){
+		return WND_RESULT_NO;
+	}
+	int OnLButtonDown(int nFlags,CPoint point){
+		return WND_RESULT_NO;
+	}
+	int OnLButtonUp(int nFlags,CPoint point){
+		return WND_RESULT_NO;
+	}
+	int OnLButtonClick(int nFlags, CPoint point){
+		return WND_RESULT_NO;
+	}
+	int OnMouseMove(int nFlags,CPoint point){
+		return WND_RESULT_NO;
+	}
+	int OnMouseMoveIn(int nFlags,CPoint point){
+		return WND_RESULT_NO;
+	}
+	int OnMouseMoveOut(int nFlags,CPoint point){
+		return WND_RESULT_NO;
+	}
+}
+class CPoint {
+	int			x = 0;
+	int			y = 0;
+	CPoint( int x, int y )
+	{
+		this.x = x;
+		this.y = y;
+	}
+}
+class wnddesktop extends CWndBase {
+	wnddesktop() {
+		super();
+	}
+	int OnChar ( int keyType, int keyValue ) {
+			int nRes = WND_RESULT_NO;
+			//println("wnd onchar " + int(key) + " " + keyCode);
+			//super.OnChar( keyType, keyValue );
+			return nRes;
+		}
+}
+class CWndButton extends CWndBase {
+	CWndButton() {
+		super();
+	}
+	int OnLButtonClick(int nFlags, CPoint point){
+		onClick();
+		return WND_RESULT_YES;
+	}
+	void onClick() {
+		//println("click = " + m_nDlgID);
+		SendMessageToParent(WND_EVENT_CLICK,m_nDlgID);
+	}
+	int OnLButtonDown(int nFlags,CPoint point){
+		return WND_RESULT_YES;
+	}
+	int OnLButtonUp(int nFlags,CPoint point){
+		return WND_RESULT_YES;
+	}
+}
+class CWndTga extends CWndBase {
+	PImage 	pImgFlip;
+	PImage 	pImgDraw = 0;
+	PImage 	pImgSrc;
+	int		m_nFrameWidth = 0;
+	int		m_nFrameHeight = 0;
+	boolean m_bMirror = false;
+	int 	m_nCurFrame = 0;
+	int		m_nFrameX	= 0;
+	int		m_nFrameY	= 0;
+	int		m_nMaxFrame	= 0;
+	
+	int		m_nR		= 0;
+	int		m_nG		= 0;
+	int		m_nB		= 0;
+	//constructor
+	CWndTga(String strRes, int sx, int sy) 
+	{
+		try
+		{
+			super();
+			this.m_nFrameX 	= sx;
+			this.m_nFrameY	= sy;
+			this.pImgSrc = loadImage(strRes);
+			this.m_nFrameWidth 	= this.pImgSrc.width ;
+			this.m_nMaxFrame = sx;
+			this.m_nFrameHeight = this.pImgSrc.height;
+			//println("width = " + this.m_nFrameWidth + " height = " + this.m_nFrameHeight );
+			this.pImgFlip = createImage(this.pImgSrc.width, this.pImgSrc.height, ARGB);
+			this.flipImg();
+			changeFrame();
+		}
+		catch(e)
+		{
+			println(e);
+		}
+	}
+	boolean Create( int posx, int posy, int cx, int cy, CWndBase pWnd, int nID ) {
+		super.Create( posx, posy, cx, cy, pWnd, nID );
+		ResizeWindow(this.pImgSrc.width,this.pImgSrc.height);
+		//println(" " + this.pImgSrc.width + " " + this.pImgSrc.height);
+		//println(" " + m_rcAbsWnd.top + " " + m_rcAbsWnd.bottom);
+	}
+	void SetMirror( boolean bMirror )
+	{
+		this.m_bMirror = bMirror;
+	}
+	void setFrame( int nFrame )
+	{
+		try
+		{
+			if ( this.m_nCurFrame != nFrame )
+			{
+				this.m_nCurFrame = nFrame;
+				changeFrame();
+			}
+		}
+		catch(e)
+		{
+			println("setFrame " + e);
+		}
+	}
+	void changeFrame()
+	{
+		try
+		{
+			int nDrawFrame = this.m_nCurFrame;
+			if( this.m_bMirror == true )
+			{
+				int nCFrame = this.m_nMaxFrame - 1 - nDrawFrame;
+				this.pImgDraw = this.pImgFlip.get(nCFrame * this.m_nFrameWidth,0,this.m_nFrameWidth,this.m_nFrameHeight)
+			}
+			else
+			{
+				this.pImgDraw = this.pImgSrc.get(nDrawFrame * this.m_nFrameWidth,0,this.m_nFrameWidth,this.m_nFrameHeight)
+			}
+			//println("nCurFrame " + nDrawFrame);
+		}
+		catch(e)
+		{
+			println("changeframe " + e);
+		}
+	}
+	void addFrame()
+	{
+		this.m_nCurFrame++;
+		if( this.m_nCurFrame >= this.m_nFrameX )
+		{
+			this.m_nCurFrame = 0;
+		}
+		changeFrame();
+	}
+	void onDraw()
+	{
+		try
+		{
+			if( this.pImgDraw != 0 )
+			{
+				image( this.pImgDraw, this.m_rcAbsWnd.left, this.m_rcAbsWnd.top );
+			}
+			else
+			{
+				//println("pImgDraw == 0 ");
+			}
+			super.onDraw();
+		}
+		catch(e)
+		{
+			println("draw " + e);
+		}
+	}
+	void flipImg()
+	{
+		try
+		{
+			for( var hei = 0; hei < this.pImgSrc.height; hei++ )
+			{
+				var wid = this.pImgSrc.width - 1;
+				var widDst = 0;
+				for( ; wid >= 0; wid-- )
+				{
+					var vIndex = ((this.pImgSrc.width * hei) + wid);
+					var vDstIndex = ((this.pImgSrc.width * hei) + widDst);
+					this.pImgFlip.pixels[vDstIndex]=this.pImgSrc.pixels[vIndex];
+					widDst++;
+				}
+			}
+			//println("flip");
+		}
+		catch(e)
+		{
+			println("flipimg " + e);
+		}
+	}
+}
+class CWndText extends CWndBase {
+	int		m_nColorR	= 255;
+	int		m_nColorG	= 255;
+	int		m_nColorB	= 255;
+	int		m_nAlpha	= 255;
+	String	m_strText	= "";
+	int		m_nTextSize	= 14;
+	CWndText()
+	{
+		super();
+	}
+	void SetFontSize( int nSize ) {
+		m_nTextSize = nSize;
+	}
+	void SetColor( int crR, int crG, int crB ) {
+		this.m_nColorR = crR;
+		this.m_nColorG = crG;
+		this.m_nColorB = crB;
+	}
+	void SetText( String text )
+	{
+		this.m_strText = text;
+	}
+	boolean Create( int posx, int posy, int cx, int cy, CWndBase pWnd, int nID ) {
+		super.Create( posx, posy, cx, cy, pWnd, nID );
+	}
+	void onDraw() {
+		if ( m_bVisible ) {
+			
+			textFont(fontA, m_nTextSize);
+			fill(this.m_nColorR, this.m_nColorG, this.m_nColorB,m_nAlpha);
+			text(this.m_strText, m_rcAbsWnd.left + 0 ,m_rcAbsWnd.top + 10);
+		}
+	}
+}
+class CGroup extends CWndBase{
+	ArrayList 	pBookArray;
+	int			m_nGroupCnt;
+	CGroup		m_pNext;
+	CGroup		m_pLast;
+	int			m_nGroupIdx;
+	int			m_nParticleWidth;
+	
+	int			m_nDrawLineWidth;
+	int			m_nDrawLineHeight;
+	int			m_nDrawPosX;
+	int			m_nDrawPosY;
+	CGroup( CBook pBook, int idx ) {
+		super();
+		pBookArray = new ArrayList();
+		pBookArray.add( pBook );
+		m_nGroupCnt = 1;
+		m_pNext		= null;
+		m_pLast		= null;
+		m_nGroupIdx = idx;
+		m_nParticleWidth	= 4;
+		m_nDrawLineWidth = 0;
+		m_nDrawLineHeight = 0;
+		
+		m_nDrawPosX	= 0;
+		m_nDrawPosY	= 0;
+	}
+	boolean Create( int posx, int posy, int cx, int cy, CWndBase pWnd, int nID ) {
+		super.Create(posx, posy, cx,cy, pWnd, nID );
+		_groupUpdate();
+	}
+	void DrawRect(int posx, int posy, int nWdith, int nHeight ) {
+		rect(posx, posy, nWdith, m_nParticleWidth);
+		rect(posx, posy + nHeight, nWdith, m_nParticleWidth);
+		
+		rect(posx, posy, m_nParticleWidth,nHeight );
+		rect(posx + nWdith - m_nParticleWidth , posy, m_nParticleWidth,nHeight );
+	}
+	CBook Remove( int nIndex ) {
+		CBook pTmpBook = (CBook)(pBookArray.remove(nIndex));
+		m_nGroupCnt--;
+		_groupUpdate();
+		return pTmpBook;
+	}
+	void Add( CBook pBook ) {
+		pBookArray.add( pBook );
+		pBook.m_pGroup = this;
+		m_nGroupCnt++;
+		_groupUpdate();
+	}
+	void _groupUpdate() {
+		int nSz = pBookArray.size();
+		if( nSz > 0 ) {
+			CBook pBook = (CBook)pBookArray.get(0);
+			m_nDrawLineHeight = pBook.m_rcAbsWnd.bottom - pBook.m_rcAbsWnd.top;
+			m_nDrawLineWidth = pBook.m_rcAbsWnd.right - pBook.m_rcAbsWnd.left;
+			m_nDrawLineWidth = m_nDrawLineWidth * nSz;
+			m_nDrawPosX		= pBook.m_rcAbsWnd.left;
+			m_nDrawPosY		= pBook.m_rcAbsWnd.top;
+		}
+	}
+	void onDraw() {
+		if ( m_bVisible ) {
+			int nSz = pBookArray.size();
+			if( nSz > 0 ) {
+				fill(255,255,0);
+				DrawRect(m_nDrawPosX,m_nDrawPosY,m_nDrawLineWidth,m_nDrawLineHeight);
+			}
+		}
+	}
+}
+class CBook extends CWndBase {
+	int			m_nIndex		= 0;
+	CWndText	m_pText			= null;
+	CWndTga		m_pBg			= null;
+	CGroup		m_pGroup		= null;
+	CBook( int nIndex)
+	{
+		super();
+		m_pGroup = new CGroup( this, nIndex );
+		m_nIndex = nIndex;
+	}
+	void MoveWindow( int posx, int posy ) {
+		super.MoveWindow( posx, posy );
+		m_pGroup._groupUpdate();
+	}
+	boolean Create( int posx, int posy, int cx, int cy, CWndBase pWnd, int nID ) {
+		super.Create( posx, posy, cx, cy, pWnd, nID );
+		m_pBg = new CWndTga("pic/book1.PNG",1,1);
+		m_pBg.Create( 0, 0, 0, 0, this, 1 );
+		m_pText	= new CWndText();
+		m_pText.Create( 10, 10, 100, 30, this, 2 );
+		m_pText.SetText(String(m_nIndex));
+		m_pText.SetColor(0,0,0);
+		
+		
+		ResizeWindow(m_pBg.m_rcAbsWnd.right - m_pBg.m_rcAbsWnd.left,  m_pBg.m_rcAbsWnd.bottom - m_pBg.m_rcAbsWnd.top );
+		
+		m_pGroup.Create( 0, 0, 0, 0, pDesk, 0 );
+	}
+}
+class CMainInput extends CWndBase {
+	
+	CMainInput() {
+		super();
+	}
+	int OnKeyUp ( int keyType, int keyValue ) {
+		int nRes = WND_RESULT_NO;
+		boolean bProcess = handProcess( keyValue );
+		if ( bProcess ) {
+			nRes  = WND_RESULT_YES
+		}
+		return nRes;
+	}
+	int OnMessage( int nUIEvent, int nID ) {
+		int nRes = WND_RESULT_NO;
+		if( WND_EVENT_CLICK == nUIEvent ) {
+			if ( nID == g_nBtnLeft ) {
+				handProcess( LEFT );
+				nRes = WND_RESULT_YES;
+			}
+			else if ( nID == g_nBtnRight ) {
+				nRes = WND_RESULT_YES;
+				handProcess( RIGHT );
+			}
+			else if ( nID == g_nBtnCtrl ) {
+				nRes = WND_RESULT_YES;
+				handProcess( CONTROL );
+			}
+		}
+		return nRes;
+	}
+}
+void moveByGroup( CGroup pGroup, int nDir, int nValue ) {
+	for ( int idx = 0; idx < pGroup.pBookArray.size(); idx++ ) {
+		CBook pBook = (CBook)pGroup.pBookArray.get(idx);
+		pBook.MoveDirect( nDir, nValue );
+	}
+}
+int getCurFirstPos( CGroup pGroup ) {
+	CBook pBook = pGroup.pBookArray.get( 0 );
+	return pBook.m_rcRect.left;
+}
+int getGroupWidth( CGroup pGroup ) {
+	int nSize = pGroup.pBookArray.size();
+	int nWidth = nSize * g_nWidth;
+	return nWidth;
+}
+void changeGroup ( CGroup pB,CGroup pC ) {
+	CGroup pA = null;
+	CGroup pD = null;
+	
+	if ( pB != null ) {
+		pA = pB.m_pLast;
+	}
+	else {
+	}
+	if ( pC != null ) {
+		pD = pC.m_pNext;
+	}
+	else {
+	}
+	if ( pB != null ) {
+		pB.m_pNext = pD;
+		pB.m_pLast = pC;
+	}
+	else {
+	}
+	if ( pD != null ){
+		pD.m_pLast = pB;
+	}
+	else {
+	}
+	if ( pC != null ) {
+		pC.m_pNext = pB;
+		pC.m_pLast = pA;
+	}
+	else {
+	}
+	if ( pA != null ) {
+		pA.m_pNext = pC;
+	}
+	else {
+	}
+	
+}
+/*
+void connectGroup() {
+	CGroup pCurGroup = g_pFirstGroup;
+	while ( pCurGroup != null ) {
+	}
+}
+*/
+
+CGroup connectGroup() {
+	CGroup pCurGroup = g_pFirstGroup;
+	CGroup pReturnGroup = g_pCurGroup;
+	//println( g_pFirstGroup.m_nGroupIdx );
+	//println( g_pFirstGroup.m_pNext.m_nGroupIdx );
+	try {
+		while ( pCurGroup != null ) {
+			CGroup pNextGroup = pCurGroup.m_pNext;
+			boolean bNextNext = false;
+			if( pNextGroup ) {
+				//println("curid = " + pCurGroup.m_nGroupIdx + " nextid = " + pNextGroup.m_nGroupIdx);
+				//println("cur sz = " + pCurGroup.pBookArray.size() + " next sz = " + pNextGroup.pBookArray.size());
+				int nCurSize = pCurGroup.pBookArray.size();
+				CBook pCurBook 	= (CBook)pCurGroup.pBookArray.get(nCurSize - 1);
+				CBook pNextBook = (CBook)pNextGroup.pBookArray.get( 0 );
+				int nCurIndex = pCurBook.m_nIndex;
+				int nNextIndex = pNextBook.m_nIndex;
+				if ( nCurIndex == nNextIndex - 1 ) {
+					if( pNextBook.m_pGroup = g_pCurGroup ) {
+						pReturnGroup = pCurGroup;
+					}
+					int idx = 0;
+					bNextNext = true;
+					
+					if( g_pFirstGroup == pNextGroup ) {
+						//如果被删除的是第一个的话，就要把当前的赋值为第一个.
+						g_pFirstGroup = pCurGroup;
+						//println("hack");
+					}
+					while ( true ) {
+						int nNewSize = pNextGroup.pBookArray.size();
+						//println("nsize = " + nNewSize);
+						if ( nNewSize > 0 ) {
+							//CBook pTmpBook = (CBook)(pNextGroup.pBookArray.remove(idx));
+							CBook pTmpBook = pNextGroup.Remove(idx);
+							if ( pNextGroup == pCurGroup ) {
+								//println("same " + pNextGroup.m_nGroupIdx + " " + pCurGroup.m_nGroupIdx);
+							}
+							else { 
+								//println("cur add " + pCurGroup.m_nGroupIdx);
+								pCurGroup.Add( pTmpBook );								
+							}
+						}
+						else {
+							//println("break");
+							break;
+						}
+					}
+				}
+				//println( pCurGroup.m_nGroupIdx + " " + pNextGroup.m_nGroupIdx );
+			}
+			else {
+				//todo 有时候这里会失败。失败的话，就不会连接所有的group了.
+				//println("失败了" + pNextGroup);
+			}
+			//println("loop over");
+			if( bNextNext ) {
+				if( pNextGroup ) {
+					pCurGroup.m_pNext = pNextGroup.m_pNext;
+					if( pNextGroup.m_pNext ) {
+						//println("next idx = " + pNextGroup.m_pNext.m_nGroupIdx );
+						pNextGroup.m_pNext.m_pLast = pCurGroup;
+					}
+					else {
+						pCurGroup = null;
+					}
+				}
+				else {
+					pCurGroup = null;
+				}
+			}
+			else {
+				if ( pNextGroup == null ) {
+					pCurGroup.m_pNext = null;
+					//println("hahaha " + pCurGroup.m_nGroupIdx);
+				}
+				pCurGroup = pNextGroup;
+			}
+		}
+	}
+	catch ( e ) {
+		println(e);
+	}
+	return pReturnGroup;
+}
+
+void connect2Group( CGroup pG1, CGroup pG2 ) {
+	if ( pG1 != null ) {
+		pG1.m_pNext = pG2;
+	}
+	if ( pG2 != null ) {
+		pG2.m_pLast = pG1;
+	}
+}
+boolean handProcess( keyValue ) {
+	CGroup pGroup = null;
+	boolean bProcess = false;
+	if ( g_bGetGroup ) {
+		if ( keyValue == LEFT ) {
+			try {
+				if ( g_pLastGroup ) {
+					int nWidthLast = getGroupWidth( g_pLastGroup );
+					int nWidthCur = getGroupWidth( g_pCurGroup );
+					moveByGroup( g_pCurGroup, CWndBase.m_nDirLeft, nWidthLast );
+					moveByGroup( g_pLastGroup, CWndBase.m_nDirRight, nWidthCur );
+					
+					//连接前后
+					connect2Group( g_pLastGroup, g_pNextGroup );
+					g_pNextGroup = g_pLastGroup;
+					g_pLastGroup = g_pLastGroup.m_pLast;
+					if ( g_pLastGroup == null ) {
+						g_pFirstGroup = g_pCurGroup;
+						//println("hack");
+					}
+					_SetHand( g_pCurGroup );
+				}
+				else {
+					//println(" plast is null");
+				}
+			}
+			catch ( e ) {
+				println(e);
+			}
+		}
+		if ( keyValue == RIGHT ) {
+			try {
+				if ( g_pNextGroup ) {
+					int nWidthNext = getGroupWidth( g_pNextGroup );
+					int nWidthCur = getGroupWidth( g_pCurGroup );
+					moveByGroup( g_pCurGroup, CWndBase.m_nDirRight, nWidthNext);
+					moveByGroup( g_pNextGroup, CWndBase.m_nDirLeft, nWidthCur);
+					
+					if ( g_pCurGroup == g_pFirstGroup ) {
+						g_pFirstGroup = g_pNextGroup;
+					}
+					connect2Group( g_pLastGroup, g_pNextGroup );
+					g_pLastGroup = g_pNextGroup;
+					g_pNextGroup = g_pNextGroup.m_pNext;
+					_SetHand( g_pCurGroup );	
+				}
+				else {
+					//println("g_pNextGroup is null");
+				}
+			}
+			catch ( e ) {
+				println(e);
+			}
+		}
+		if ( keyValue == CONTROL ) {
+			try {
+				moveByGroup( g_pCurGroup,CWndBase.m_nDirUp,30 );
+				g_bGetGroup = !g_bGetGroup;
+				connect2Group( g_pLastGroup, g_pCurGroup );
+				connect2Group( g_pCurGroup, g_pNextGroup );
+				
+				CGroup pGroup = g_pFirstGroup;
+				while ( pGroup ) {
+					//println("gr mi idx = " + pGroup.m_nGroupIdx);
+					pGroup = pGroup.m_pNext;
+				}
+				
+				//println(g_pCurGroup.m_pLast + " " + g_pCurGroup.m_pNext);
+				
+				CGroup pHandGroup = connectGroup();
+				
+				CGroup pGroup = g_pFirstGroup;
+				if( pGroup.m_pLast == null && pGroup.m_pNext == null ) {
+					println("over!");
+					g_pOverText.m_bVisible = true;
+				}
+				while ( pGroup ) {
+					//println("groupidx = " + pGroup.m_nGroupIdx);
+					pGroup = pGroup.m_pNext;
+				}
+				
+				//println( pHandGroup.m_nGroupIdx );
+				_SetHand( pHandGroup );
+			}
+			catch ( e ) {
+				println( e );
+			}
+		}
+	}
+	else{
+		if ( keyValue == LEFT ) {
+			pGroup = g_pCurGroup.m_pLast;
+		}
+		if ( keyValue == RIGHT ) {
+			pGroup = g_pCurGroup.m_pNext;
+		}
+		if ( keyValue == CONTROL ) {
+			try {
+				moveByGroup( g_pCurGroup,CWndBase.m_nDirDown,30 );
+				g_bGetGroup = !g_bGetGroup;
+				//打断group和前后的关系。
+				g_pLastGroup = g_pCurGroup.m_pLast;
+				g_pNextGroup = g_pCurGroup.m_pNext;
+				g_pCurGroup.m_pLast = null;
+				g_pCurGroup.m_pNext = null;
+				//连接前后group之间的关系.
+				if ( g_pLastGroup && g_pNextGroup ) {
+					g_pLastGroup.m_pNext = g_pNextGroup;
+					g_pNextGroup.m_pLast = g_pLastGroup;
+				}
+				else if ( g_pLastGroup == null && g_pNextGroup ){
+					g_pNextGroup.m_pLast = null;
+				}
+				else if ( g_pNextGroup == null && g_pLastGroup ){
+					g_pLastGroup.m_pNext = null;
+				}
+				_SetHand( g_pCurGroup );
+			}
+			catch ( e ) {
+				println( e );
+			}
+		}
+		if ( pGroup ) {
+			//println("groupid " + pGroup.m_nGroupIdx);
+			_SetHand( pGroup );
+			bProcess = true;
+			//println("has group");
+		}
+		else {
+			//println("null");
+		}
+	}
+	return bProcess;
+}
+</script><canvas width="200" height="200"></canvas></p>
+<div style="height:0px;width:0px;overflow:hidden;"><img src='data/sky.jpg' id='sky.jpg'/><img src='data/teddy.gif' id='teddy.gif'/></div>
+</body>
+</html>
